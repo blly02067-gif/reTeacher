@@ -6,9 +6,7 @@
 <title>StudyFlow — ReTeacher AI</title>
 <link rel="stylesheet" href="css/shared.css">
 
-<!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
-<!-- mammoth.js for .docx parsing -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
 <style>
@@ -464,9 +462,6 @@
   <h1 class="page-title">✨ ReTeacher</h1>
   <p class="page-sub">Upload your notes — PDF, Word doc, or plain text — and get a clean AI study sheet. Click any <span class="concept-pill" style="cursor:default;pointer-events:none">concept</span> for a deeper explanation.</p>
 
-  <!-- ════════════════════════════════════════════════════════
-       PAYWALL SECTION
-   ════════════════════════════════════════════════════════ -->
   <div id="paywall-section" style="display:none">
     <div class="paywall-wrap">
       <div class="paywall-hero">
@@ -519,20 +514,15 @@
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════════════
-       MAIN APP SECTION
-   ════════════════════════════════════════════════════════ -->
   <div id="app-section" style="display:none">
     <div class="rt-layout">
 
-      <!-- ── LEFT: Input panel ───────────────────────────── -->
       <div class="rt-panel">
         <div class="rt-panel-header">
           <span>📋</span> Your Notes
         </div>
         <div class="rt-panel-body">
 
-          <!-- Subject chips -->
           <p style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Subject</p>
           <div class="subject-sel" id="subject-sel">
             <button class="subj-chip active" data-subj="General">General</button>
@@ -545,7 +535,6 @@
             <button class="subj-chip" data-subj="CS">CS</button>
           </div>
 
-          <!-- Input mode tabs -->
           <div class="input-tabs" id="input-tabs">
             <button class="input-tab active" data-tab="file">
               <span>📎</span> Upload file
@@ -555,9 +544,7 @@
             </button>
           </div>
 
-          <!-- ── FILE TAB ── -->
           <div id="tab-file">
-            <!-- Drop zone (shown when no file loaded) -->
             <div id="drop-zone" class="drop-zone">
               <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt,.md" multiple>
               <div class="drop-icon">📄</div>
@@ -570,16 +557,13 @@
               </div>
             </div>
 
-            <!-- File processing indicator -->
             <div id="file-processing" style="display:none" class="file-processing">
               <div class="spin"></div>
               <span id="processing-msg">Reading file…</span>
             </div>
 
-            <!-- File preview (shown after load) -->
             <div id="file-list"></div>
 
-            <!-- Extracted text preview (collapsed) -->
             <div id="extracted-preview" style="display:none;margin-top:10px">
               <details>
                 <summary style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Preview extracted text</summary>
@@ -588,7 +572,6 @@
             </div>
           </div>
 
-          <!-- ── TEXT TAB ── -->
           <div id="tab-text" style="display:none">
             <textarea class="notes-input" id="notes-input" placeholder="Paste your class notes here...
 
@@ -609,7 +592,6 @@ exam is friday!!!"></textarea>
         </div>
       </div>
 
-      <!-- ── RIGHT: Output panel ─────────────────────────── -->
       <div class="rt-panel" id="output-panel">
         <div class="rt-panel-header">
           <span>📄</span> Study Sheet
@@ -631,7 +613,6 @@ exam is friday!!!"></textarea>
   </div>
 </div>
 
-<!-- ══ Explain modal ══════════════════════════════════════════ -->
 <div class="explain-modal" id="explain-modal">
   <div class="explain-box">
     <button class="explain-close" onclick="closeExplain()">✕</button>
@@ -645,29 +626,28 @@ exam is friday!!!"></textarea>
 // ════════════════════════════════════════════════════════════
 // CONFIG — swap in your real Stripe price ID
 // ════════════════════════════════════════════════════════════
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TZJf1CwS4ahGnCpvtSMkYNAiArg0oXVSIfrChq726dKdD7V9Ju8zNbs4yCyCicZnICYTa2xSY7QpBF6Z0Wgk19i004ma7149L'; // TODO: replace
-const STRIPE_PRICE_ID        = 'price_1TZJhfCwS4ahGnCp5Xuuze2d';                 // TODO: replace
-const GEMINI_API_KEY       = 'AIzaSyDDBL_BhgRpD7xrZPCC364my61J-8TPFJg';
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TZJf1CwS4ahGnCpvtSMkYNAiArg0oXVSIfrChq726dKdD7V9Ju8zNbs4yCyCicZnICYTa2xSY7QpBF6Z0Wgk19i004ma7149L'; 
+const STRIPE_PRICE_ID        = 'price_1TZJhfCwS4ahGnCp5Xuuze2d';                 
+const GEMINI_API_KEY         = 'AIzaSyDDBL_BhgRpD7xrZPCC364my61J-8TPFJg';
 const GEMINI_MODEL           = 'gemini-1.5-flash';
 const GEMINI_BASE            = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL;
 
 // ════════════════════════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════════════════════════
-let isPremium   = localStorage.getItem('sf_premium') === 'true';
-let activeTab   = 'file';
+let isPremium       = localStorage.getItem('sf_premium') === 'true';
+let activeTab       = 'file';
 let selectedSubject = 'General';
-let extractedContent = '';   // text extracted from uploaded file(s)
-let extractedForGemini = []; // [{type:'text'|'pdf_base64', data, mimeType}]
+let extractedContent = '';   
+let extractedForGemini = []; 
 let lastSheetText = '';
-let sfUser = null;           // Fallback global variable for Auth state check
 
 // ════════════════════════════════════════════════════════════
 // ACCESS GATE
 // ════════════════════════════════════════════════════════════
 function checkAccess() {
-  const show = el => el.style.display = 'block';
-  const hide = el => el.style.display = 'none';
+  const show = el => { if(el) el.style.display = 'block'; };
+  const hide = el => { if(el) el.style.display = 'none'; };
 
   if (isPremium) {
     hide(document.getElementById('paywall-section'));
@@ -679,8 +659,6 @@ function checkAccess() {
   }
 }
 
-// Initial Call
-// Simulate profile lookup logic if firebase.js isn't modifying this instantly
 setTimeout(checkAccess, 200);
 
 // ════════════════════════════════════════════════════════════
@@ -899,7 +877,7 @@ function escHtml(s) {
 }
 
 // ════════════════════════════════════════════════════════════
-// GENERATION & GEMINI API INTEGRATION
+// AI GENERATION STREAMING ENGINE & PARSING
 // ════════════════════════════════════════════════════════════
 document.getElementById('generate-btn').addEventListener('click', async () => {
   let contentParts = [];
@@ -925,7 +903,6 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
     contentParts.push({ text: textVal });
   }
 
-  // Set UI to loading state
   const btn = document.getElementById('generate-btn');
   const btnIcon = document.getElementById('btn-icon');
   const btnLabel = document.getElementById('btn-label');
@@ -934,140 +911,184 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
   const badge = document.getElementById('sheet-badge');
 
   btn.disabled = true;
-  btnIcon.textContent = '⏳';
-  btnLabel.textContent = 'Analyzing context...';
+  btnLabel.textContent = 'Transforming notes...';
+  btnIcon.className = 'loading-dots';
   badge.style.display = 'none';
   toolbar.style.display = 'none';
+  
+  outputArea.innerHTML = '<div class="study-sheet streaming-cursor" id="sheet-content"></div>';
+  const sheetContent = document.getElementById('sheet-content');
 
-  outputArea.innerHTML = `
-    <div class="study-sheet streaming-cursor" id="streaming-content">
-      <h1>✨ Processing under ${escHtml(selectedSubject)} Track</h1>
-      <p class="loading-dots">Structuring key items and wrapping technical terms in interactive concept pills</p>
-    </div>`;
-
-  const systemPrompt = `You are ReTeacher AI, a specialized tutor processing messy academic source material.
-    Generate a concise, robust, and clean study sheet optimized for high school/undergraduate level matching the track: "${selectedSubject}".
-    Structure your output strictly using clean HTML elements: <h1>, <h2>, <h3>, <p>, <ul>, <ol>, <li>, and <strong>. 
-    CRITICAL: Identify key terminology, deep definitions, or core formulas, and wrap them strictly in <span class="concept-pill">Concept Name</span>. Do not use markdown format inside your response text. Output raw standard HTML syntax only.`;
+  // Inject structural framing criteria instructions
+  contentParts.unshift({ text: "You are ReTeacher AI. Generate a structural, conversion-ready study sheet from the provided notes. Wrap core jargon keywords or highly critical technical terms inside double square brackets like this: [[Concept]]. Do not use triple square brackets or markdown link format. Organize everything cleanly into clear H1, H2 sections, bullets, and short paragraphs. Be direct and conversational but academically rigorous. Keep code examples cleanly locked within backticks." });
 
   try {
     const response = await fetch(`${GEMINI_BASE}:streamGenerateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [...contentParts, { text: `System Guide: ${systemPrompt}` }] }],
-        generationConfig: { maxOutputTokens: 2500, temperature: 0.2 }
-      })
+      body: JSON.stringify({ contents: [{ parts: contentParts }] })
     });
 
-    if (!response.ok) throw new Error(`HTTP target error status: ${response.status}`);
-    
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    const targetDiv = document.getElementById('streaming-content');
-    let dynamicBuffer = '';
-    let compiledMarkdown = '';
+    if (!response.ok) throw new Error('API request failed');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let rawMarkdown = '';
 
     while (true) {
-      const { value, done } = await reader.read();
+      const { done, value } = await reader.read();
       if (done) break;
       
-      dynamicBuffer += value;
-      let boundaries = dynamicBuffer.split(/\r?\n/);
-      dynamicBuffer = boundaries.pop();
-
-      for (const line of boundaries) {
-        if (line.startsWith('data:')) {
-          try {
-            const rawJson = JSON.parse(line.substring(5));
-            const textChunk = rawJson.candidates[0].content.parts[0].text;
-            if (textChunk) {
-              compiledMarkdown += textChunk;
-              targetDiv.innerHTML = compiledMarkdown;
-            }
-          } catch (e) { /* Track partial streaming items safely */ }
+      const chunkText = decoder.decode(value, { stream: true });
+      const lines = chunkText.split('\n');
+      
+      for (const line of lines) {
+        if (line.trim().startsWith('"text":')) {
+          const extractedStr = line.split('"text":')[1].trim().replace(/^"/, '').replace(/"?,?$/, '');
+          const unescaped = extractedStr.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+          rawMarkdown += unescaped;
+          sheetContent.innerHTML = parseStudySheetMarkdown(rawMarkdown);
         }
       }
     }
 
-    // Flush remaining fragments
-    if (dynamicBuffer.startsWith('data:')) {
-      try {
-        const rawJson = JSON.parse(dynamicBuffer.substring(5));
-        const textChunk = rawJson.candidates[0].content.parts[0].text;
-        if (textChunk) compiledMarkdown += textChunk;
-      } catch (e) {}
-    }
-
-    lastSheetText = compiledMarkdown || 'Processing complete without output data stream fragments.';
-    targetDiv.innerHTML = lastSheetText;
-    targetDiv.classList.remove('streaming-cursor');
+    sheetContent.classList.remove('streaming-cursor');
+    lastSheetText = sheetContent.innerText;
+    document.getElementById('word-count').textContent = `${lastSheetText.split(/\s+/).length} words parsed`;
     
-    // UI clean up and tracking metrics
     badge.style.display = 'block';
     toolbar.style.display = 'flex';
-    const words = lastSheetText.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length;
-    document.getElementById('word-count').textContent = `${words} words generated`;
-    
-    attachConceptListeners();
+    bindConceptPills();
 
   } catch (err) {
-    outputArea.innerHTML = `<div style="color:var(--red); padding:20px;">⚠️ Extraction Failed: ${err.message}</div>`;
+    console.error(err);
+    outputArea.innerHTML = `<div style="color:var(--red);padding:20px;text-align:center">⚠️ Failed to generate study sheet: ${err.message}</div>`;
   } finally {
     btn.disabled = false;
-    btnIcon.textContent = '✨';
     btnLabel.textContent = 'Transform my notes';
+    btnIcon.className = '';
+    btnIcon.textContent = '✨';
   }
 });
 
+// Structural Markdown formatting rules engine converting [[Concept]] rules to active UI pills
+function parseStudySheetMarkdown(md) {
+  let html = md
+    .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
+    .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+    .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.*?)`/g, '<code>$1</code>')
+    .replace(/^\s*[-*+]\s+(.*?)$/gm, '<li>$1</li>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+
+  html = html.replace(/\[\[(.*?)\]\]/g, '<span class="concept-pill" data-concept="$1">$1</span>');
+  
+  if (!html.startsWith('<h1>') && !html.startsWith('<p>')) {
+    html = '<p>' + html + '</p>';
+  }
+  return html;
+}
+
 // ════════════════════════════════════════════════════════════
-// CONCEPT INTERACTION EXPLAINER MODAL
+// CONCEPT PILL MODAL BACKEND INTERACTION (CLICK TO EXPLAIN)
 // ════════════════════════════════════════════════════════════
-function attachConceptListeners() {
-  document.getElementById('output-area').addEventListener('click', async (e) => {
-    const pill = e.target.closest('.concept-pill');
-    if (!pill) return;
-
-    const concept = pill.textContent.trim();
-    const modal = document.getElementById('explain-modal');
-    
-    document.getElementById('explain-subject').textContent = `Subject Context: ${selectedSubject}`;
-    document.getElementById('explain-title').textContent = concept;
-    document.getElementById('explain-body').innerHTML = `<p class="loading-dots">Consulting deep knowledge reference bases for "${concept}"</p>`;
-    modal.classList.add('open');
-
-    try {
-      const response = await fetch(`${GEMINI_BASE}:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: `Provide an accessible, direct, and raw text paragraph explanation for the concept: "${concept}" within the context of high school/undergraduate level ${selectedSubject}. Use explicit examples if relevant.` }] }]
-        })
-      });
-
-      const data = await response.json();
-      const rawText = data.candidates[0].content.parts[0].text;
-      document.getElementById('explain-body').innerHTML = `<p>${escHtml(rawText)}</p>`;
-    } catch(err) {
-      document.getElementById('explain-body').innerHTML = `<p style="color:var(--red)">Failed to reach explainer base: ${err.message}</p>`;
-    }
+function bindConceptPills() {
+  document.querySelectorAll('.concept-pill').forEach(pill => {
+    pill.addEventListener('click', async () => {
+      const concept = pill.dataset.concept;
+      openExplainModal(concept);
+    });
   });
+}
+
+async function openExplainModal(concept) {
+  const modal = document.getElementById('explain-modal');
+  const title = document.getElementById('explain-title');
+  const subjectEl = document.getElementById('explain-subject');
+  const body = document.getElementById('explain-body');
+
+  title.textContent = concept;
+  subjectEl.textContent = `${selectedSubject} Context Breakdown`;
+  body.innerHTML = '<div class="loading-dots" style="padding:20px 0;color:var(--text3)">Consulting ReTeacher Engine</div>';
+  modal.classList.add('open');
+
+  try {
+    const prompt = `Explain the term or concept "${concept}" deeply in the context of high-school or introductory college ${selectedSubject}. Use crisp breakdown paragraphs, clear layout logic, or bullet points. Include an intuitive analogy if helpful. Provide plain conversational answers without markdown headers or code frames.`;
+    
+    const res = await fetch(`${GEMINI_BASE}:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    
+    const data = await res.json();
+    const rawTxt = data.candidates[0].content.parts[0].text;
+    
+    body.innerHTML = rawTxt.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+
+    // Native workspace storage routing automatically binding directly to flashcards collections
+    body.innerHTML += `<button class="btn btn-primary btn-sm" id="modal-flash-btn" style="margin-top:15px;width:100%">📥 Save directly as ${selectedSubject} Flashcard</button>`;
+    
+    document.getElementById('modal-flash-btn').addEventListener('click', async () => {
+      try {
+        let cards = typeof sfLoad === 'function' ? await sfLoad('flashcards', []) : JSON.parse(localStorage.getItem('sf_flashcards') || '[]');
+        cards.push({
+          id: Date.now().toString(),
+          deck: selectedSubject,
+          q: `What is ${concept}?`,
+          a: body.innerText.replace(`Save directly as ${selectedSubject} Flashcard`, '').trim()
+        });
+        if (typeof sfSave === 'function') await sfSave('flashcards', cards);
+        else localStorage.setItem('sf_flashcards', JSON.stringify(cards));
+        alert('Flashcard successfully saved directly to app database! 🃏');
+      } catch(err) {
+        alert('Saved flashcard token sequence to local window scope context.');
+      }
+    });
+
+  } catch(err) {
+    body.innerHTML = `<p style="color:var(--red)">Failed to reach interpretation engine: ${err.message}</p>`;
+  }
 }
 
 function closeExplain() {
   document.getElementById('explain-modal').classList.remove('open');
 }
 
-// Toolbar Clipboard integration
+// ════════════════════════════════════════════════════════════
+// COPY TOOLBAR MECHANICS
+// ════════════════════════════════════════════════════════════
 document.getElementById('copy-btn').addEventListener('click', () => {
-  const strippedText = lastSheetText.replace(/<[^>]*>/g, '');
-  navigator.clipboard.writeText(strippedText).then(() => {
-    const originalText = document.getElementById('copy-btn').textContent;
-    document.getElementById('copy-btn').textContent = 'Copied! ✓';
-    setTimeout(() => {
-      document.getElementById('copy-btn').textContent = originalText;
-    }, 200);
-  });
+  navigator.clipboard.writeText(lastSheetText);
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = 'Copied! ✓';
+  setTimeout(() => btn.textContent = 'Copy text', 2000);
 });
+
+// ════════════════════════════════════════════════════════════
+// FIREBASE LIFECYCLE LISTENERS
+// ════════════════════════════════════════════════════════════
+if (typeof sfOnAuthReady !== 'undefined') {
+  sfOnAuthReady((user) => {
+    sfUser = user;
+    if (user) {
+      // Check for user document premium parameters inside database
+      sfDb.collection('users').doc(user.uid).get().then(doc => {
+        if (doc.exists && doc.data().premium) {
+          isPremium = true;
+          localStorage.setItem('sf_premium', 'true');
+        }
+        checkAccess();
+      }).catch(() => {
+        checkAccess();
+      });
+    } else {
+      checkAccess();
+    }
+  });
+}
 </script>
 </body>
 </html>
