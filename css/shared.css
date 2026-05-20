@@ -192,3 +192,49 @@ select option { background: var(--bg3); }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* â”€â”€ Firebase auth nav UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.sf-signin-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px;
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.sf-signin-btn:hover { border-color: var(--accent); color: var(--accent2); }
+
+.sf-user-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  font-size: 13px;
+}
+.sf-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  object-fit: cover;
+}
+.sf-user-name { font-weight: 600; color: var(--text); }
+.sf-signout-btn {
+  background: none; border: none;
+  font-size: 12px; color: var(--text2);
+  cursor: pointer; padding: 2px 6px;
+  border-radius: 6px; transition: all 0.15s;
+  font-family: inherit;
+}
+.sf-signout-btn:hover { background: var(--red-bg); color: var(--red); }
+.sf-sync-toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 10px 16px;
+  font-size: 13px; color: var(--text2);
+  z-index: 999; display: flex; align-items: center; gap: 8px;
+  animation: sfSlideIn 0.2s ease;
+}
+@keyframes sfSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
