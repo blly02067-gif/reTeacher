@@ -5,80 +5,439 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StudyFlow — ReTeacher AI</title>
 <link rel="stylesheet" href="css/shared.css">
+
+<!-- Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
+<!-- mammoth.js for .docx parsing -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
 <style>
-  .rt-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-  @media (max-width: 700px) { .rt-layout { grid-template-columns: 1fr; } }
-  .rt-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); }
-  .rt-panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  .rt-panel-body { padding: 16px 20px; }
-  .notes-input { width: 100%; min-height: 280px; resize: vertical; font-size: 14px; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); padding: 14px; font-family: inherit; line-height: 1.6; outline: none; }
-  .notes-input:focus { border-color: var(--accent); }
-  .subject-sel { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-  .subj-chip { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--text2); transition: all 0.15s; }
-  .subj-chip.active { background: var(--accent-bg); color: var(--accent2); border-color: var(--accent); }
-  .generate-btn { width: 100%; padding: 13px; font-size: 15px; font-weight: 700; }
-  .output-area { min-height: 320px; }
-  .output-placeholder { text-align: center; padding: 48px 20px; color: var(--text3); }
-  .output-placeholder p { margin-top: 8px; font-size: 14px; }
-  .study-sheet { line-height: 1.7; }
-  .study-sheet h1 { font-size: 20px; font-weight: 800; margin: 0 0 16px; color: var(--accent2); }
-  .study-sheet h2 { font-size: 16px; font-weight: 700; margin: 20px 0 8px; color: var(--text); border-left: 3px solid var(--accent); padding-left: 10px; }
-  .study-sheet h3 { font-size: 14px; font-weight: 700; margin: 14px 0 6px; color: var(--text2); }
-  .study-sheet p { font-size: 14px; margin: 0 0 10px; }
-  .study-sheet ul, .study-sheet ol { padding-left: 20px; margin: 0 0 10px; }
-  .study-sheet li { font-size: 14px; margin-bottom: 4px; }
-  .study-sheet strong { color: var(--accent2); font-weight: 700; }
-  .study-sheet code { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 1px 6px; font-size: 13px; font-family: monospace; color: var(--green); }
-  .concept-pill {
-    display: inline; cursor: pointer;
-    background: var(--accent-bg); color: var(--accent2);
-    border-radius: 4px; padding: 1px 6px;
-    font-weight: 600; font-size: 13px;
-    border-bottom: 1.5px solid var(--accent);
-    transition: background 0.15s;
-  }
-  .concept-pill:hover { background: rgba(124,106,247,0.25); }
+/* ── Layout ───────────────────────────────────────────────── */
+.rt-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 720px) { .rt-layout { grid-template-columns: 1fr; } }
 
-  /* Explain modal */
-  .explain-modal {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-    display: none; align-items: center; justify-content: center;
-    z-index: 200; padding: 20px;
-  }
-  .explain-modal.open { display: flex; }
-  .explain-box {
-    background: var(--bg2); border: 1px solid var(--border2);
-    border-radius: var(--radius-lg); padding: 28px;
-    max-width: 560px; width: 100%; max-height: 80vh;
-    overflow-y: auto; position: relative;
-  }
-  .explain-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 14px; color: var(--accent2); }
-  .explain-box p { font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
-  .explain-close { position: absolute; top: 14px; right: 14px; background: var(--bg3); border: none; color: var(--text2); cursor: pointer; font-size: 18px; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.rt-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.rt-panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.rt-panel-body { padding: 18px 20px; }
 
-  /* Paywall */
-  .paywall { text-align: center; padding: 40px 24px; }
-  .paywall-icon { font-size: 40px; margin-bottom: 12px; }
-  .paywall h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
-  .paywall p { color: var(--text2); margin-bottom: 24px; font-size: 15px; }
-  .paywall-features { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; text-align: left; max-width: 300px; margin-left: auto; margin-right: auto; }
-  .paywall-features li { font-size: 14px; list-style: none; display: flex; align-items: center; gap: 8px; }
-  .paywall-features li::before { content: '✓'; color: var(--green); font-weight: 700; }
-  .divider-or { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text3); font-size: 13px; }
-  .divider-or::before, .divider-or::after { content:''; flex:1; border-top: 1px solid var(--border); }
-  .dev-box { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); padding: 16px; }
-  .dev-box p { font-size: 13px; color: var(--text2); margin-bottom: 8px; }
-  .dev-box a { color: var(--accent2); }
-  .char-count { font-size: 12px; color: var(--text3); text-align: right; margin-top: 4px; }
-  .streaming-cursor::after { content: '▊'; animation: blink 0.7s infinite; }
-  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-  .loading-dots::after { content: '.'; animation: dots 1.2s infinite; }
-  @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
+/* ── Input tabs ───────────────────────────────────────────── */
+.input-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg3);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 14px;
+}
+.input-tab {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: inherit;
+}
+.input-tab.active {
+  background: var(--bg2);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
 
-  /* Signed-in API key section */
-  .api-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; margin-bottom: 14px; }
-  .api-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
-  .api-key-toggle { font-size: 12px; color: var(--accent2); cursor: pointer; margin-left: auto; }
+/* ── Drop zone ────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  background: var(--bg3);
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+.drop-icon { font-size: 36px; margin-bottom: 4px; }
+.drop-label { font-size: 15px; font-weight: 600; color: var(--text); }
+.drop-sub { font-size: 13px; color: var(--text2); }
+.drop-types { display: flex; gap: 6px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
+.drop-type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+.type-pdf { background: rgba(240,96,96,0.15); color: #f06060; }
+.type-docx { background: rgba(62,130,207,0.15); color: #60aff0; }
+.type-txt { background: var(--bg3); color: var(--text2); border: 1px solid var(--border2); }
+
+/* ── File preview ─────────────────────────────────────────── */
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+}
+.file-preview-icon { font-size: 24px; flex-shrink: 0; }
+.file-preview-info { flex: 1; min-width: 0; }
+.file-preview-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-preview-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.file-remove { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 18px; padding: 4px 6px; border-radius: 6px; transition: all 0.15s; flex-shrink: 0; }
+.file-remove:hover { background: var(--red-bg); color: var(--red); }
+
+/* File processing indicator */
+.file-processing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--accent-bg);
+  border: 1px solid rgba(124,106,247,0.3);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--accent2);
+  margin-bottom: 10px;
+}
+.spin {
+  width: 16px; height: 16px;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Textarea notes ───────────────────────────────────────── */
+.notes-input {
+  width: 100%;
+  min-height: 240px;
+  resize: vertical;
+  font-size: 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.notes-input:focus { border-color: var(--accent); }
+.char-count { font-size: 12px; color: var(--text3); text-align: right; margin-top: 4px; }
+
+/* ── Subject chips ────────────────────────────────────────── */
+.subject-sel { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+.subj-chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.subj-chip.active { background: var(--accent-bg); color: var(--accent2); border-color: var(--accent); }
+
+/* ── Generate button ──────────────────────────────────────── */
+.generate-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 12px;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+}
+.generate-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.generate-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+/* ── Output panel ─────────────────────────────────────────── */
+.output-area { min-height: 340px; }
+.output-placeholder {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--text3);
+}
+.output-placeholder p { margin-top: 8px; font-size: 14px; line-height: 1.6; }
+
+/* Study sheet rendering */
+.study-sheet { line-height: 1.75; }
+.study-sheet h1 { font-size: 19px; font-weight: 800; margin: 0 0 16px; color: var(--accent2); }
+.study-sheet h2 { font-size: 15px; font-weight: 700; margin: 22px 0 8px; border-left: 3px solid var(--accent); padding-left: 10px; }
+.study-sheet h3 { font-size: 13px; font-weight: 700; margin: 14px 0 5px; color: var(--text2); }
+.study-sheet p { font-size: 14px; margin: 0 0 10px; }
+.study-sheet ul, .study-sheet ol { padding-left: 20px; margin: 0 0 10px; }
+.study-sheet li { font-size: 14px; margin-bottom: 5px; }
+.study-sheet strong { color: var(--accent2); font-weight: 700; }
+.study-sheet code { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 1px 6px; font-size: 12px; font-family: monospace; color: var(--green); }
+
+/* Concept pills */
+.concept-pill {
+  display: inline;
+  cursor: pointer;
+  background: var(--accent-bg);
+  color: var(--accent2);
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1.5px solid var(--accent);
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+.concept-pill:hover { background: rgba(124,106,247,0.3); }
+
+/* Output toolbar */
+.output-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+.copy-btn {
+  margin-left: auto;
+  padding: 5px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent2); }
+
+/* ── Animations ───────────────────────────────────────────── */
+.streaming-cursor::after { content: '▊'; animation: blink 0.7s infinite; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+.loading-dots::after { content: '.'; animation: ldots 1.2s infinite; }
+@keyframes ldots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+
+/* ── Explain modal ────────────────────────────────────────── */
+.explain-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 20px;
+}
+.explain-modal.open { display: flex; }
+.explain-box {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+}
+.explain-box h3 { font-size: 18px; font-weight: 800; margin-bottom: 4px; color: var(--accent2); }
+.explain-subject { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+.explain-box .explain-body p { font-size: 14px; line-height: 1.75; margin-bottom: 12px; }
+.explain-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: var(--bg3);
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 16px;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.explain-close:hover { background: var(--red-bg); color: var(--red); }
+
+/* ── Paywall ──────────────────────────────────────────────── */
+.paywall-wrap {
+  max-width: 560px;
+  margin: 0 auto;
+}
+.paywall-hero {
+  text-align: center;
+  padding: 40px 24px 32px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.paywall-glow {
+  position: absolute;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+  top: -100px; left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.paywall-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-bg);
+  border: 1px solid rgba(124,106,247,0.35);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent2);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.paywall-hero h2 {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 10px;
+}
+.paywall-hero p {
+  font-size: 15px;
+  color: var(--text2);
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+.paywall-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 28px;
+  text-align: left;
+}
+.paywall-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.paywall-feature-check {
+  width: 18px; height: 18px;
+  background: var(--green-bg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--green);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.stripe-btn {
+  width: 100%;
+  padding: 15px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: var(--radius);
+  border: none;
+  background: linear-gradient(135deg, #7c6af7, #9b8dff);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  letter-spacing: -0.2px;
+  box-shadow: 0 4px 20px rgba(124,106,247,0.35);
+}
+.stripe-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,106,247,0.45); }
+.stripe-btn:active { transform: none; }
+.stripe-fine-print {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.signin-nudge {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+}
+.signin-nudge p { color: var(--text2); line-height: 1.4; }
+.signin-nudge strong { color: var(--text); }
 </style>
 </head>
 <body>
@@ -103,61 +462,78 @@
 
 <div class="page">
   <h1 class="page-title">✨ ReTeacher</h1>
-  <p class="page-sub">Paste your messy class notes. Get a clean, organized study sheet. Click any <span class="concept-pill" style="cursor:default">concept</span> for a deeper AI explanation.</p>
+  <p class="page-sub">Upload your notes — PDF, Word doc, or plain text — and get a clean AI study sheet. Click any <span class="concept-pill" style="cursor:default;pointer-events:none">concept</span> for a deeper explanation.</p>
 
-  <!-- ── PAYWALL (shown when no access) ── -->
+  <!-- ════════════════════════════════════════════════════════
+       PAYWALL SECTION
+   ════════════════════════════════════════════════════════ -->
   <div id="paywall-section" style="display:none">
-    <div class="card paywall">
-      <div class="paywall-icon">✨</div>
-      <h2>Unlock ReTeacher AI</h2>
-      <p>Transform your messy class notes into clean study sheets — powered by Google Gemini.</p>
-      <ul class="paywall-features">
-        <li>AI-organized study sheets</li>
-        <li>Click any concept for a deeper explanation</li>
-        <li>Works for math, physics, chem, calculus</li>
-        <li>Unlimited generations</li>
-        <li>Syncs with your account</li>
-      </ul>
+    <div class="paywall-wrap">
+      <div class="paywall-hero">
+        <div class="paywall-glow"></div>
+        <div class="paywall-badge">✦ Premium Feature</div>
+        <h2>Your notes, actually understood.</h2>
+        <p>ReTeacher reads your messy PDFs, Word docs, and handwritten text — then turns them into crystal-clear study sheets in seconds.</p>
 
-      <!-- Stripe placeholder -->
-      <button class="btn btn-primary" style="font-size:16px;padding:13px 36px" id="stripe-btn">
-        Upgrade — $5/month
-      </button>
-      <p style="font-size:12px;color:var(--text3);margin-top:8px">Secure checkout via Stripe · Cancel anytime</p>
+        <div class="paywall-features">
+          <div class="paywall-feature">
+            <div class="paywall-feature-check">✓</div>
+            <span>Upload PDF notes</span>
+          </div>
+          <div class="paywall-feature">
+            <div class="paywall-feature-check">✓</div>
+            <span>Upload Word docs</span>
+          </div>
+          <div class="paywall-feature">
+            <div class="paywall-feature-check">✓</div>
+            <span>AI study sheets</span>
+          </div>
+          <div class="paywall-feature">
+            <div class="paywall-feature-check">✓</div>
+            <span>Click-to-explain concepts</span>
+          </div>
+          <div class="paywall-feature">
+            <div class="paywall-feature-check">✓</div>
+            <span>Math, physics, chem, calc</span>
+          </div>
+          <div class="paywall-feature">
+            <div class="paywall-feature-check">✓</div>
+            <span>Unlimited generations</span>
+          </div>
+        </div>
 
-      <div class="divider-or">or test for free</div>
+        <button class="stripe-btn" id="stripe-btn">
+          Unlock ReTeacher — $5 / month
+        </button>
+        <div class="stripe-fine-print">
+          <span>🔒</span>
+          Secure checkout · Cancel anytime
+        </div>
+      </div>
 
-      <div class="dev-box">
-        <p>Enter your own <a href="https://aistudio.google.com/app/apikey" target="_blank">Gemini API key</a> to try without paying (free tier available)</p>
-        <input type="password" id="gemini-key-input" placeholder="AIza...">
-        <button class="btn btn-ghost btn-sm" id="save-key-btn" style="width:100%;margin-top:8px">Use my Gemini API key</button>
-        <p id="key-error" style="color:var(--red);font-size:12px;margin-top:6px;display:none"></p>
+      <div class="signin-nudge" id="signin-nudge" style="display:none">
+        <span style="font-size:24px">☁️</span>
+        <p><strong>Already subscribed?</strong> Sign in with Google to restore your access and sync your data across devices.</p>
+        <button class="btn btn-ghost btn-sm" onclick="sfSignIn()" style="flex-shrink:0">Sign in</button>
       </div>
     </div>
   </div>
 
-  <!-- ── MAIN APP (shown when access granted) ── -->
+  <!-- ════════════════════════════════════════════════════════
+       MAIN APP SECTION
+   ════════════════════════════════════════════════════════ -->
   <div id="app-section" style="display:none">
-    <div id="api-status-bar" class="api-status" style="display:none">
-      <div class="dot"></div>
-      <span id="api-status-label">Using your Gemini API key</span>
-      <span class="api-key-toggle" id="change-key-btn">Change key</span>
-    </div>
-
-    <div id="change-key-panel" style="display:none;margin-bottom:14px">
-      <div class="dev-box">
-        <p>Enter a different Gemini API key</p>
-        <input type="password" id="gemini-key-change" placeholder="AIza...">
-        <button class="btn btn-ghost btn-sm" id="update-key-btn" style="width:100%;margin-top:8px">Update key</button>
-      </div>
-    </div>
-
     <div class="rt-layout">
-      <!-- Left: Notes input -->
+
+      <!-- ── LEFT: Input panel ───────────────────────────── -->
       <div class="rt-panel">
-        <div class="rt-panel-header">📋 Your notes</div>
+        <div class="rt-panel-header">
+          <span>📋</span> Your Notes
+        </div>
         <div class="rt-panel-body">
-          <p style="font-size:13px;color:var(--text2);margin-bottom:10px">What subject are these notes for?</p>
+
+          <!-- Subject chips -->
+          <p style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Subject</p>
           <div class="subject-sel" id="subject-sel">
             <button class="subj-chip active" data-subj="General">General</button>
             <button class="subj-chip" data-subj="Math">Math</button>
@@ -165,126 +541,181 @@
             <button class="subj-chip" data-subj="Chemistry">Chemistry</button>
             <button class="subj-chip" data-subj="Calculus">Calculus</button>
             <button class="subj-chip" data-subj="Biology">Biology</button>
+            <button class="subj-chip" data-subj="History">History</button>
+            <button class="subj-chip" data-subj="CS">CS</button>
           </div>
-          <textarea class="notes-input" id="notes-input" placeholder="Paste your class notes here...
+
+          <!-- Input mode tabs -->
+          <div class="input-tabs" id="input-tabs">
+            <button class="input-tab active" data-tab="file">
+              <span>📎</span> Upload file
+            </button>
+            <button class="input-tab" data-tab="text">
+              <span>✏️</span> Paste text
+            </button>
+          </div>
+
+          <!-- ── FILE TAB ── -->
+          <div id="tab-file">
+            <!-- Drop zone (shown when no file loaded) -->
+            <div id="drop-zone" class="drop-zone">
+              <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt,.md" multiple>
+              <div class="drop-icon">📄</div>
+              <div class="drop-label">Drop your notes here</div>
+              <div class="drop-sub">or click to browse</div>
+              <div class="drop-types">
+                <span class="drop-type-badge type-pdf">PDF</span>
+                <span class="drop-type-badge type-docx">DOCX</span>
+                <span class="drop-type-badge type-txt">TXT / MD</span>
+              </div>
+            </div>
+
+            <!-- File processing indicator -->
+            <div id="file-processing" style="display:none" class="file-processing">
+              <div class="spin"></div>
+              <span id="processing-msg">Reading file…</span>
+            </div>
+
+            <!-- File preview (shown after load) -->
+            <div id="file-list"></div>
+
+            <!-- Extracted text preview (collapsed) -->
+            <div id="extracted-preview" style="display:none;margin-top:10px">
+              <details>
+                <summary style="font-size:12px;color:var(--text2);cursor:pointer;user-select:none">Preview extracted text</summary>
+                <div id="extracted-text-preview" style="font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:6px;max-height:120px;overflow-y:auto;white-space:pre-wrap;font-family:monospace;line-height:1.5"></div>
+              </details>
+            </div>
+          </div>
+
+          <!-- ── TEXT TAB ── -->
+          <div id="tab-text" style="display:none">
+            <textarea class="notes-input" id="notes-input" placeholder="Paste your class notes here...
 
 e.g.
 so derivative is rate of change right
-chain rule - if u got f(g(x)) then multiply the derivatives together
-power rule xn becomes nxn-1
-trig: sin -> cos, cos -> -sin
-dont forget product rule: d/dx[fg] = f'g + fg'
+chain rule — if f(g(x)) multiply the derivatives
+power rule: xⁿ becomes nxⁿ⁻¹
+sin → cos, cos → −sin
+product rule: d/dx[fg] = f′g + fg′
 exam is friday!!!"></textarea>
-          <div class="char-count" id="char-count">0 / 5000 chars</div>
-          <button class="btn btn-primary generate-btn" id="generate-btn" style="margin-top:10px">✨ Transform my notes</button>
+            <div class="char-count" id="char-count">0 / 8000 chars</div>
+          </div>
+
+          <button class="generate-btn" id="generate-btn">
+            <span id="btn-icon">✨</span>
+            <span id="btn-label">Transform my notes</span>
+          </button>
         </div>
       </div>
 
-      <!-- Right: Study sheet output -->
-      <div class="rt-panel">
+      <!-- ── RIGHT: Output panel ─────────────────────────── -->
+      <div class="rt-panel" id="output-panel">
         <div class="rt-panel-header">
-          📄 Study sheet
+          <span>📄</span> Study Sheet
           <span id="sheet-badge" style="display:none;margin-left:auto" class="badge badge-green">Ready ✓</span>
         </div>
         <div class="rt-panel-body output-area" id="output-area">
-          <div class="output-placeholder">
-            <div style="font-size:36px">✨</div>
-            <p>Your study sheet will appear here.<br>Paste your notes and hit Transform.</p>
+          <div class="output-placeholder" id="output-placeholder">
+            <div style="font-size:40px;margin-bottom:8px">✨</div>
+            <p>Your study sheet will appear here.<br>Upload your notes and hit Transform.</p>
           </div>
         </div>
+        <div class="output-toolbar" id="output-toolbar" style="display:none">
+          <span style="font-size:12px;color:var(--text3)" id="word-count"></span>
+          <button class="copy-btn" id="copy-btn">Copy text</button>
+        </div>
       </div>
+
     </div>
   </div>
 </div>
 
-<!-- Explain modal -->
+<!-- ══ Explain modal ══════════════════════════════════════════ -->
 <div class="explain-modal" id="explain-modal">
   <div class="explain-box">
     <button class="explain-close" onclick="closeExplain()">✕</button>
+    <div class="explain-subject" id="explain-subject"></div>
     <h3 id="explain-title"></h3>
-    <div id="explain-body"></div>
+    <div class="explain-body" id="explain-body"></div>
   </div>
 </div>
 
 <script>
-// ─── State ────────────────────────────────────────────────────────────────────
-let geminiKey = localStorage.getItem('sf_gemini_key') || '';
-let isPremium = localStorage.getItem('sf_premium') === 'true';
+// ════════════════════════════════════════════════════════════
+// CONFIG — swap in your real Stripe price ID
+// ════════════════════════════════════════════════════════════
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_STRIPE_PUBLISHABLE_KEY'; // TODO: replace
+const STRIPE_PRICE_ID        = 'price_YOUR_PRICE_ID';                 // TODO: replace
+const GEMINI_API_KEY         = 'AIzaSyDDBL_BhgRpD7xrZPCC364my61J-8TPFJg';
+const GEMINI_MODEL           = 'gemini-1.5-flash';
+const GEMINI_BASE            = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL;
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let isPremium   = localStorage.getItem('sf_premium') === 'true';
+let activeTab   = 'file';
 let selectedSubject = 'General';
+let extractedContent = '';   // text extracted from uploaded file(s)
+let extractedForGemini = []; // [{type:'text'|'pdf_base64', data, mimeType}]
+let lastSheetText = '';
+let sfUser = null;           // Fallback global variable for Auth state check
 
-const GEMINI_MODEL = 'gemini-1.5-flash';
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL;
-
-// ─── Access check ─────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// ACCESS GATE
+// ════════════════════════════════════════════════════════════
 function checkAccess() {
-  const hasAccess = isPremium || geminiKey;
-  document.getElementById('paywall-section').style.display = hasAccess ? 'none' : 'block';
-  document.getElementById('app-section').style.display = hasAccess ? 'block' : 'none';
-  if (geminiKey && !isPremium) {
-    document.getElementById('api-status-bar').style.display = 'flex';
-    document.getElementById('api-status-label').textContent = 'Using your Gemini API key · Free tier';
-  } else if (isPremium) {
-    document.getElementById('api-status-bar').style.display = 'none';
+  const show = el => el.style.display = 'block';
+  const hide = el => el.style.display = 'none';
+
+  if (isPremium) {
+    hide(document.getElementById('paywall-section'));
+    show(document.getElementById('app-section'));
+  } else {
+    show(document.getElementById('paywall-section'));
+    hide(document.getElementById('app-section'));
+    document.getElementById('signin-nudge').style.display = sfUser ? 'none' : 'flex';
   }
 }
 
-// ─── Save & validate Gemini key ───────────────────────────────────────────────
-async function validateAndSaveKey(key, inputEl, errEl, successCb) {
-  errEl.style.display = 'none';
-  if (!key || !key.startsWith('AIza')) {
-    errEl.textContent = 'That doesn\'t look like a Gemini API key (should start with AIza).';
-    errEl.style.display = 'block';
+// Initial Call
+// Simulate profile lookup logic if firebase.js isn't modifying this instantly
+setTimeout(checkAccess, 200);
+
+// ════════════════════════════════════════════════════════════
+// STRIPE CHECKOUT
+// ════════════════════════════════════════════════════════════
+document.getElementById('stripe-btn').addEventListener('click', async () => {
+  if (typeof sfSignIn === 'function' && !sfUser) {
+    await sfSignIn();
     return;
   }
-  // Quick validation ping
-  try {
-    const r = await fetch(`${GEMINI_BASE}:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }], generationConfig: { maxOutputTokens: 5 } })
-    });
-    if (!r.ok && r.status === 400) { /* might be quota — still valid key format */ }
-    if (r.status === 403 || r.status === 401) {
-      const d = await r.json();
-      errEl.textContent = 'API key rejected: ' + (d.error?.message || 'Invalid key.');
-      errEl.style.display = 'block';
-      return;
-    }
-  } catch(e) { /* network error, allow through */ }
-
-  geminiKey = key;
-  localStorage.setItem('sf_gemini_key', key);
-  if (successCb) successCb();
-  checkAccess();
-}
-
-document.getElementById('save-key-btn').addEventListener('click', () => {
-  const key = document.getElementById('gemini-key-input').value.trim();
-  const err = document.getElementById('key-error');
-  validateAndSaveKey(key, document.getElementById('gemini-key-input'), err);
+  alert(
+    'Stripe integration — backend step needed!\n\n' +
+    '1. Create a Stripe account & product ($5/mo subscription)\n' +
+    '2. Deploy a small backend (Firebase Functions, Vercel, etc.)\n' +
+    '3. On payment success webhook → write {premium: true} to Firestore users/' + (sfUser ? sfUser.uid : 'UID') + '\n\n' +
+    'Until then, temporarily unlock via browser console:\n' +
+    '  localStorage.setItem("sf_premium","true"); location.reload();'
+  );
 });
 
-document.getElementById('change-key-btn').addEventListener('click', () => {
-  const panel = document.getElementById('change-key-panel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+// ════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════
+document.getElementById('input-tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.input-tab');
+  if (!tab) return;
+  activeTab = tab.dataset.tab;
+  document.querySelectorAll('.input-tab').forEach(t => t.classList.toggle('active', t === tab));
+  document.getElementById('tab-file').style.display = activeTab === 'file' ? 'block' : 'none';
+  document.getElementById('tab-text').style.display = activeTab === 'text' ? 'block' : 'none';
 });
 
-document.getElementById('update-key-btn').addEventListener('click', () => {
-  const key = document.getElementById('gemini-key-change').value.trim();
-  const fakeErr = document.createElement('p');
-  validateAndSaveKey(key, null, fakeErr, () => {
-    document.getElementById('change-key-panel').style.display = 'none';
-  });
-});
-
-// ─── Stripe placeholder ────────────────────────────────────────────────────────
-document.getElementById('stripe-btn').addEventListener('click', () => {
-  // TODO: Replace with real Stripe Checkout
-  // e.g. stripe.redirectToCheckout({ lineItems: [...], mode: 'subscription', ... })
-  alert('Stripe checkout coming soon!\n\nFor now, use your own Gemini API key below to test the feature for free.\n\nGet a free key at: https://aistudio.google.com/app/apikey');
-});
-
-// ─── Subject chips ────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+// SUBJECT CHIPS
+// ════════════════════════════════════════════════════════════
 document.getElementById('subject-sel').addEventListener('click', e => {
   const chip = e.target.closest('.subj-chip');
   if (!chip) return;
@@ -292,179 +723,355 @@ document.getElementById('subject-sel').addEventListener('click', e => {
   document.querySelectorAll('.subj-chip').forEach(c => c.classList.toggle('active', c === chip));
 });
 
-document.getElementById('notes-input').addEventListener('input', function() {
+// ════════════════════════════════════════════════════════════
+// TEXT AREA COUNTER
+// ════════════════════════════════════════════════════════════
+document.getElementById('notes-input').addEventListener('input', function () {
   const len = this.value.length;
-  document.getElementById('char-count').textContent = len + ' / 5000 chars';
-  if (len > 5000) this.value = this.value.slice(0, 5000);
+  document.getElementById('char-count').textContent = len + ' / 8000 chars';
+  if (len > 8000) this.value = this.value.slice(0, 8000);
 });
 
-// ─── Markdown → HTML renderer ─────────────────────────────────────────────────
-function renderSheet(md) {
-  return md
-    .replace(/\[CONCEPT:\s*([^\]]+)\]/g, '<span class="concept-pill" onclick="explainConcept(\'$1\')">$1</span>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>[\s\S]*?<\/li>)(?=\s*(?:<li>|$))/g, m => '<ul>' + m + '</ul>')
-    .replace(/\n{2,}/g, '</p><p>')
-    .replace(/^(?!<)/gm, '')
-    .replace(/<p><\/p>/g, '');
+// ════════════════════════════════════════════════════════════
+// FILE HANDLING
+// ════════════════════════════════════════════════════════════
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  handleFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', e => handleFiles(Array.from(e.target.files)));
+
+async function handleFiles(files) {
+  if (!files.length) return;
+  extractedContent = '';
+  extractedForGemini = [];
+  document.getElementById('file-list').innerHTML = '';
+  document.getElementById('extracted-preview').style.display = 'none';
+
+  for (const file of files) {
+    await processFile(file);
+  }
+
+  if (extractedContent) {
+    document.getElementById('extracted-preview').style.display = 'block';
+    document.getElementById('extracted-text-preview').textContent =
+      extractedContent.slice(0, 800) + (extractedContent.length > 800 ? '\n…[truncated for preview]' : '');
+  }
 }
 
-// ─── Main generation (Gemini API with streaming) ───────────────────────────────
-document.getElementById('generate-btn').addEventListener('click', async () => {
-  const notes = document.getElementById('notes-input').value.trim();
-  if (!notes) { alert('Please paste your notes first!'); return; }
-  if (notes.length < 20) { alert('Your notes seem too short — add more content for best results.'); return; }
+async function processFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
 
-  const key = geminiKey;
-  if (!key) { alert('No API key found. Please add your Gemini key.'); checkAccess(); return; }
-
-  const btn = document.getElementById('generate-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Transforming…';
-  document.getElementById('sheet-badge').style.display = 'none';
-
-  const out = document.getElementById('output-area');
-  out.innerHTML = '<div style="padding:20px;color:var(--text2);font-size:14px">Analyzing your notes<span class="loading-dots"></span></div>';
-
-  const systemInstruction = `You are ReTeacher, an AI study assistant. Transform messy class notes into a beautifully structured study sheet.
-
-Format rules:
-- Use # for the main title
-- Use ## for major sections/concepts
-- Use ### for subsections
-- Use **bold** for key terms and important formulas
-- Use bullet lists for related points
-- Wrap key concepts the student might want explained deeper in [CONCEPT: name] format
-- For math/physics/chem: clearly show formulas with explanation
-- Keep language clear, concise, student-friendly
-- End with a ## Key Takeaways section with 3-5 bullet points
-
-Subject context: ${selectedSubject}`;
-
-  const userPrompt = `Here are my class notes. Transform them into a clear, organized study sheet:\n\n${notes}`;
+  showProcessing(`Reading ${file.name}…`);
 
   try {
-    // Gemini streaming endpoint
-    const url = `${GEMINI_BASE}:streamGenerateContent?alt=sse&key=${key}`;
-    const resp = await fetch(url, {
+    if (ext === 'pdf') {
+      await handlePDF(file, sizeMB);
+    } else if (ext === 'docx' || ext === 'doc') {
+      await handleDOCX(file, sizeMB);
+    } else if (ext === 'txt' || ext === 'md') {
+      await handleTXT(file, sizeMB);
+    } else {
+      showFileError(file.name, 'Unsupported file type. Use PDF, DOCX, or TXT.');
+      return;
+    }
+  } catch (err) {
+    showFileError(file.name, err.message);
+  }
+
+  hideProcessing();
+}
+
+async function handlePDF(file, sizeMB) {
+  if (file.size > 20 * 1024 * 1024) {
+    throw new Error('PDF is too large (max 20 MB). Please split it first.');
+  }
+  const b64 = await fileToBase64(file);
+  extractedForGemini.push({ type: 'pdf_inline', mimeType: 'application/pdf', data: b64 });
+  try {
+    const text = await extractPDFText(file);
+    extractedContent += text;
+  } catch(e) {
+    extractedContent += `[PDF: ${file.name}]`;
+  }
+  addFileCard(file.name, sizeMB + ' MB', '📕', 'Gemini will read this PDF natively — including diagrams and equations.');
+}
+
+async function extractPDFText(file) {
+  if (!window.pdfjsLib) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  let text = '';
+  for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(s => s.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+async function handleDOCX(file, sizeMB) {
+  const ab = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer: ab });
+  const text = result.value;
+  if (!text.trim()) throw new Error('No text found in this document.');
+  extractedContent += text;
+  extractedForGemini.push({ type: 'text', data: text });
+  addFileCard(file.name, sizeMB + ' MB', '📘', `${text.split(/\s+/).length.toLocaleString()} words extracted`);
+}
+
+async function handleTXT(file, sizeMB) {
+  const text = await file.text();
+  extractedContent += text;
+  extractedForGemini.push({ type: 'text', data: text });
+  addFileCard(file.name, sizeMB + ' MB', '📄', `${text.split(/\s+/).length.toLocaleString()} words`);
+}
+
+function addFileCard(name, meta, icon, detail) {
+  const div = document.createElement('div');
+  div.className = 'file-preview';
+  div.innerHTML = `
+    <div class="file-preview-icon">${icon}</div>
+    <div class="file-preview-info">
+      <div class="file-preview-name">${escHtml(name)}</div>
+      <div class="file-preview-meta">${meta} · ${detail}</div>
+    </div>
+    <button class="file-remove" onclick="removeFile(this)" title="Remove">✕</button>`;
+  document.getElementById('file-list').appendChild(div);
+  dropZone.style.display = 'none';
+}
+
+function removeFile(btn) {
+  btn.closest('.file-preview').remove();
+  if (!document.getElementById('file-list').children.length) {
+    dropZone.style.display = 'flex';
+    extractedForGemini = [];
+    extractedContent = '';
+    document.getElementById('extracted-preview').style.display = 'none';
+    fileInput.value = '';
+  }
+}
+
+function showProcessing(msg) {
+  document.getElementById('file-processing').style.display = 'flex';
+  document.getElementById('processing-msg').textContent = msg;
+}
+function hideProcessing() {
+  document.getElementById('file-processing').style.display = 'none';
+}
+function showFileError(name, msg) {
+  const div = document.createElement('div');
+  div.style.cssText = 'font-size:13px;color:var(--red);padding:10px 14px;background:var(--red-bg);border-radius:8px;margin-bottom:8px';
+  div.textContent = `⚠️ ${name}: ${msg}`;
+  document.getElementById('file-list').appendChild(div);
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ════════════════════════════════════════════════════════════
+// GENERATION & GEMINI API INTEGRATION
+// ════════════════════════════════════════════════════════════
+document.getElementById('generate-btn').addEventListener('click', async () => {
+  let contentParts = [];
+
+  if (activeTab === 'file') {
+    if (!extractedForGemini.length) {
+      alert('Please upload at least one file first.');
+      return;
+    }
+    extractedForGemini.forEach(item => {
+      if (item.type === 'pdf_inline') {
+        contentParts.push({ inlineData: { mimeType: item.mimeType, data: item.data } });
+      } else {
+        contentParts.push({ text: item.data });
+      }
+    });
+  } else {
+    const textVal = document.getElementById('notes-input').value.trim();
+    if (!textVal) {
+      alert('Please paste or type your class notes first.');
+      return;
+    }
+    contentParts.push({ text: textVal });
+  }
+
+  // Set UI to loading state
+  const btn = document.getElementById('generate-btn');
+  const btnIcon = document.getElementById('btn-icon');
+  const btnLabel = document.getElementById('btn-label');
+  const outputArea = document.getElementById('output-area');
+  
+  btn.disabled = true;
+  btnIcon.className = 'spin';
+  btnIcon.textContent = '';
+  btnLabel.className = 'loading-dots';
+  btnLabel.textContent = 'Analyzing your notes';
+  
+  outputArea.innerHTML = `<div class="output-placeholder"><div class="spin" style="width:32px;height:32px;margin:0 auto 12px"></div><p>ReTeacher AI is parsing structures, cleaning up syntax errors, and formatting your core definitions...</p></div>`;
+
+  // System instructions optimized for structural outputs containing searchable terms
+  const systemInstruction = `You are ReTeacher AI, an expert structural academic compiler inside the StudyFlow application ecosystem. 
+Your objective is to ingest confusing, messy, unstructured student class notes or uploaded academic document files and turn them into a clean, beautifully formatted study sheet.
+Target Subject Space: ${selectedSubject}.
+
+CRITICAL COMPILING RULES:
+1. Break down the material into architectural sections: logical high-level structures, formulas/frameworks, deep breakdowns, and summaries.
+2. Format cleanly using pure standard HTML markup that fits perfectly inside a container elements like <div>. Use elements like <h1>, <h2>, <h3>, <p>, <ul>, <li>, <strong>, and <code> where structural rendering is valuable.
+3. Every time you mention a foundational academic mechanism, core law, vocabulary concept, milestone date, formula title, or unique operational theory, wrap it EXACTLY inside this element style: <span class="concept-pill" data-concept="Exact Name">Exact Name</span>. Do not wrap common conversational structural items. Do this aggressively for every core concept introduced so that users can click them later.`;
+
+  try {
+    const response = await fetch(`${GEMINI_BASE}:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: { maxOutputTokens: 2048, temperature: 0.4 }
+        contents: [{ parts: [...contentParts, { text: "Convert the provided user raw contents into a structured study sheet based on your internal instructions now." }] }],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig: { temperature: 0.2 }
       })
     });
 
-    if (!resp.ok) {
-      const err = await resp.json();
-      throw new Error(err.error?.message || 'Gemini API error ' + resp.status);
-    }
+    if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    const data = await response.json();
+    
+    let generatedHtml = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    // Safety check to clear markdown formatting wrappers blocks if returned by the model
+    generatedHtml = generatedHtml.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
 
-    out.innerHTML = '<div class="study-sheet" id="sheet-content"><span class="streaming-cursor"></span></div>';
-    let rawText = '';
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+    lastSheetText = generatedHtml;
+    
+    // Render clean markup block
+    outputArea.innerHTML = `<div class="study-sheet">${generatedHtml}</div>`;
+    
+    // Show Toolbar features
+    document.getElementById('sheet-badge').style.display = 'inline-block';
+    document.getElementById('output-toolbar').style.display = 'flex';
+    
+    // Estimate clean visual word counts
+    const wordCount = outputArea.innerText.split(/\s+/).filter(Boolean).length;
+    document.getElementById('word-count').textContent = `${wordCount.toLocaleString()} words`;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep incomplete line
+    // Rebind live interactive behaviors onto all dynamically compiled components
+    bindConceptPills();
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') continue;
-        try {
-          const parsed = JSON.parse(data);
-          const chunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          if (chunk) {
-            rawText += chunk;
-            const el = document.getElementById('sheet-content');
-            if (el) el.innerHTML = renderSheet(rawText) + '<span class="streaming-cursor"></span>';
-          }
-        } catch(e) {}
-      }
-    }
-
-    const el = document.getElementById('sheet-content');
-    if (el) el.innerHTML = renderSheet(rawText);
-    document.getElementById('sheet-badge').style.display = 'inline';
-
-  } catch(err) {
-    out.innerHTML = `<div style="padding:20px;color:var(--red);font-size:14px">
-      ⚠️ Error: ${err.message}<br><br>
-      <span style="color:var(--text2)">Check your API key and try again. Make sure the Gemini API is enabled in Google AI Studio.</span>
-    </div>`;
+  } catch (error) {
+    console.error(error);
+    outputArea.innerHTML = `<div class="output-placeholder" style="color:var(--red)">⚠️ Generation Failed: ${error.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btnIcon.className = '';
+    btnIcon.textContent = '✨';
+    btnLabel.className = '';
+    btnLabel.textContent = 'Transform my notes';
   }
-
-  btn.disabled = false;
-  btn.textContent = '✨ Transform my notes';
 });
 
-// ─── Concept explanation (Gemini) ─────────────────────────────────────────────
-async function explainConcept(concept) {
-  const key = geminiKey;
-  if (!key) return;
+// ════════════════════════════════════════════════════════════
+// LIVE CONCEPT PILL CLINIC (CLICK-TO-EXPLAIN EXECUTIONS)
+// ════════════════════════════════════════════════════════════
+function bindConceptPills() {
+  document.querySelectorAll('.study-sheet .concept-pill').forEach(pill => {
+    pill.addEventListener('click', async () => {
+      const conceptName = pill.getAttribute('data-concept') || pill.innerText;
+      openExplainModal(conceptName);
+    });
+  });
+}
 
+async function openExplainModal(conceptName) {
   const modal = document.getElementById('explain-modal');
-  const title = document.getElementById('explain-title');
-  const body = document.getElementById('explain-body');
-  title.textContent = concept;
-  body.innerHTML = '<p style="color:var(--text2)">Explaining<span class="loading-dots"></span></p>';
+  const mSubject = document.getElementById('explain-subject');
+  const mTitle = document.getElementById('explain-title');
+  const mBody = document.getElementById('explain-body');
+  
+  mSubject.textContent = `${selectedSubject.toUpperCase()} DEEP DIVE`;
+  mTitle.textContent = conceptName;
+  mBody.innerHTML = `<div class="spin" style="width:24px;height:24px;margin:20px auto"></div><p style="text-align:center;color:var(--text3)">Consulting StudyFlow ReTeacher engines...</p>`;
+  
   modal.classList.add('open');
 
+  const deepDivePrompt = `Explain the concept "${conceptName}" within the academic context of ${selectedSubject}. 
+Provide a clear, intuitive 2-paragraph overview containing a simple everyday analogy and real-world execution cases. Format strictly as standard visual HTML <p> fragments only.`;
+
   try {
-    const url = `${GEMINI_BASE}:generateContent?key=${key}`;
-    const resp = await fetch(url, {
+    const response = await fetch(`${GEMINI_BASE}:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{
-          role: 'user',
-          parts: [{ text: `Explain "${concept}" to a student in 3-4 short paragraphs. Start with a simple everyday analogy, then give the formal definition, then show a practical example. Be clear and approachable. Subject context: ${selectedSubject}` }]
-        }],
-        generationConfig: { maxOutputTokens: 600, temperature: 0.5 }
+        contents: [{ parts: [{ text: deepDivePrompt }] }],
+        generationConfig: { temperature: 0.4 }
       })
     });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error?.message || 'API error');
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not get explanation.';
-    body.innerHTML = text.split('\n\n').filter(Boolean).map(p => `<p>${p}</p>`).join('');
+
+    if (!response.ok) throw new Error('Failed loading explanation snippet.');
+    const data = await response.json();
+    let explanationHtml = data.candidates?.[0]?.content?.parts?.[0]?.text || '<p>Explanation unavailable.</p>';
+    explanationHtml = explanationHtml.replace(/^```html\s*/i, '').replace(/
+```\s*$/i, '').trim();
+
+    mBody.innerHTML = explanationHtml;
   } catch(e) {
-    body.innerHTML = `<p style="color:var(--red)">Failed to get explanation: ${e.message}</p>`;
+    mBody.innerHTML = `<p style="color:var(--red)">⚠️ Error generating deep dive lookup: ${e.message}</p>`;
   }
 }
 
-function closeExplain() { document.getElementById('explain-modal').classList.remove('open'); }
-document.getElementById('explain-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('explain-modal')) closeExplain();
+function closeExplain() {
+  document.getElementById('explain-modal').classList.remove('open');
+}
+
+// Global modal background closer escape mechanics
+document.getElementById('explain-modal').addEventListener('click', (e) => {
+  if(e.target === document.getElementById('explain-modal')) closeExplain();
 });
 
-// ─── Auth integration ─────────────────────────────────────────────────────────
-sfOnAuthReady(user => {
-  if (user) {
-    // Check if user has premium in Firestore
-    sfDb.collection('users').doc(user.uid).get().then(doc => {
-      if (doc.exists && doc.data().premium) {
-        isPremium = true;
-        localStorage.setItem('sf_premium', 'true');
-        checkAccess();
-      }
-    }).catch(() => {});
-  }
+// ════════════════════════════════════════════════════════════
+// TOOLBAR ACCELERATIONS
+// ════════════════════════════════════════════════════════════
+document.getElementById('copy-btn').addEventListener('click', () => {
+  const textContent = document.getElementById('output-area').innerText;
+  navigator.clipboard.writeText(textContent).then(() => {
+    const btn = document.getElementById('copy-btn');
+    const oldText = btn.textContent;
+    btn.textContent = 'Copied! ✓';
+    btn.style.borderColor = 'var(--green)';
+    setTimeout(() => {
+      btn.textContent = oldText;
+      btn.style.borderColor = '';
+    }, 2000);
+  }).catch(err => {
+    alert('Failed copying to clipboard context.');
+  });
 });
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
-checkAccess();
 </script>
 </body>
 </html>
