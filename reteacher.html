@@ -645,9 +645,9 @@ exam is friday!!!"></textarea>
 // ════════════════════════════════════════════════════════════
 // CONFIG — swap in your real Stripe price ID
 // ════════════════════════════════════════════════════════════
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_YOUR_STRIPE_PUBLISHABLE_KEY'; // TODO: replace
-const STRIPE_PRICE_ID        = 'price_YOUR_PRICE_ID';                 // TODO: replace
-const GEMINI_API_KEY         = 'AIzaSyDDBL_BhgRpD7xrZPCC364my61J-8TPFJg';
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TZJf1CwS4ahGnCpvtSMkYNAiArg0oXVSIfrChq726dKdD7V9Ju8zNbs4yCyCicZnICYTa2xSY7QpBF6Z0Wgk19i004ma7149L'; // TODO: replace
+const STRIPE_PRICE_ID        = 'price_1TZJhfCwS4ahGnCp5Xuuze2d';                 // TODO: replace
+const GEMINI_API_KEY       = 'AIzaSyDDBL_BhgRpD7xrZPCC364my61J-8TPFJg';
 const GEMINI_MODEL           = 'gemini-1.5-flash';
 const GEMINI_BASE            = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL;
 
@@ -930,146 +930,142 @@ document.getElementById('generate-btn').addEventListener('click', async () => {
   const btnIcon = document.getElementById('btn-icon');
   const btnLabel = document.getElementById('btn-label');
   const outputArea = document.getElementById('output-area');
-  
+  const toolbar = document.getElementById('output-toolbar');
+  const badge = document.getElementById('sheet-badge');
+
   btn.disabled = true;
-  btnIcon.className = 'spin';
-  btnIcon.textContent = '';
-  btnLabel.className = 'loading-dots';
-  btnLabel.textContent = 'Analyzing your notes';
-  
-  outputArea.innerHTML = `<div class="output-placeholder"><div class="spin" style="width:32px;height:32px;margin:0 auto 12px"></div><p>ReTeacher AI is parsing structures, cleaning up syntax errors, and formatting your core definitions...</p></div>`;
+  btnIcon.textContent = '⏳';
+  btnLabel.textContent = 'Analyzing context...';
+  badge.style.display = 'none';
+  toolbar.style.display = 'none';
 
-  // System instructions optimized for structural outputs containing searchable terms
-  const systemInstruction = `You are ReTeacher AI, an expert structural academic compiler inside the StudyFlow application ecosystem. 
-Your objective is to ingest confusing, messy, unstructured student class notes or uploaded academic document files and turn them into a clean, beautifully formatted study sheet.
-Target Subject Space: ${selectedSubject}.
+  outputArea.innerHTML = `
+    <div class="study-sheet streaming-cursor" id="streaming-content">
+      <h1>✨ Processing under ${escHtml(selectedSubject)} Track</h1>
+      <p class="loading-dots">Structuring key items and wrapping technical terms in interactive concept pills</p>
+    </div>`;
 
-CRITICAL COMPILING RULES:
-1. Break down the material into architectural sections: logical high-level structures, formulas/frameworks, deep breakdowns, and summaries.
-2. Format cleanly using pure standard HTML markup that fits perfectly inside a container elements like <div>. Use elements like <h1>, <h2>, <h3>, <p>, <ul>, <li>, <strong>, and <code> where structural rendering is valuable.
-3. Every time you mention a foundational academic mechanism, core law, vocabulary concept, milestone date, formula title, or unique operational theory, wrap it EXACTLY inside this element style: <span class="concept-pill" data-concept="Exact Name">Exact Name</span>. Do not wrap common conversational structural items. Do this aggressively for every core concept introduced so that users can click them later.`;
+  const systemPrompt = `You are ReTeacher AI, a specialized tutor processing messy academic source material.
+    Generate a concise, robust, and clean study sheet optimized for high school/undergraduate level matching the track: "${selectedSubject}".
+    Structure your output strictly using clean HTML elements: <h1>, <h2>, <h3>, <p>, <ul>, <ol>, <li>, and <strong>. 
+    CRITICAL: Identify key terminology, deep definitions, or core formulas, and wrap them strictly in <span class="concept-pill">Concept Name</span>. Do not use markdown format inside your response text. Output raw standard HTML syntax only.`;
 
   try {
-    const response = await fetch(`${GEMINI_BASE}:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${GEMINI_BASE}:streamGenerateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [...contentParts, { text: "Convert the provided user raw contents into a structured study sheet based on your internal instructions now." }] }],
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        generationConfig: { temperature: 0.2 }
+        contents: [{ parts: [...contentParts, { text: `System Guide: ${systemPrompt}` }] }],
+        generationConfig: { maxOutputTokens: 2500, temperature: 0.2 }
       })
     });
 
-    if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
-    const data = await response.json();
+    if (!response.ok) throw new Error(`HTTP target error status: ${response.status}`);
     
-    let generatedHtml = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    
-    // Safety check to clear markdown formatting wrappers blocks if returned by the model
-    generatedHtml = generatedHtml.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    const targetDiv = document.getElementById('streaming-content');
+    let dynamicBuffer = '';
+    let compiledMarkdown = '';
 
-    lastSheetText = generatedHtml;
-    
-    // Render clean markup block
-    outputArea.innerHTML = `<div class="study-sheet">${generatedHtml}</div>`;
-    
-    // Show Toolbar features
-    document.getElementById('sheet-badge').style.display = 'inline-block';
-    document.getElementById('output-toolbar').style.display = 'flex';
-    
-    // Estimate clean visual word counts
-    const wordCount = outputArea.innerText.split(/\s+/).filter(Boolean).length;
-    document.getElementById('word-count').textContent = `${wordCount.toLocaleString()} words`;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      
+      dynamicBuffer += value;
+      let boundaries = dynamicBuffer.split(/\r?\n/);
+      dynamicBuffer = boundaries.pop();
 
-    // Rebind live interactive behaviors onto all dynamically compiled components
-    bindConceptPills();
+      for (const line of boundaries) {
+        if (line.startsWith('data:')) {
+          try {
+            const rawJson = JSON.parse(line.substring(5));
+            const textChunk = rawJson.candidates[0].content.parts[0].text;
+            if (textChunk) {
+              compiledMarkdown += textChunk;
+              targetDiv.innerHTML = compiledMarkdown;
+            }
+          } catch (e) { /* Track partial streaming items safely */ }
+        }
+      }
+    }
 
-  } catch (error) {
-    console.error(error);
-    outputArea.innerHTML = `<div class="output-placeholder" style="color:var(--red)">⚠️ Generation Failed: ${error.message}</div>`;
+    // Flush remaining fragments
+    if (dynamicBuffer.startsWith('data:')) {
+      try {
+        const rawJson = JSON.parse(dynamicBuffer.substring(5));
+        const textChunk = rawJson.candidates[0].content.parts[0].text;
+        if (textChunk) compiledMarkdown += textChunk;
+      } catch (e) {}
+    }
+
+    lastSheetText = compiledMarkdown || 'Processing complete without output data stream fragments.';
+    targetDiv.innerHTML = lastSheetText;
+    targetDiv.classList.remove('streaming-cursor');
+    
+    // UI clean up and tracking metrics
+    badge.style.display = 'block';
+    toolbar.style.display = 'flex';
+    const words = lastSheetText.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length;
+    document.getElementById('word-count').textContent = `${words} words generated`;
+    
+    attachConceptListeners();
+
+  } catch (err) {
+    outputArea.innerHTML = `<div style="color:var(--red); padding:20px;">⚠️ Extraction Failed: ${err.message}</div>`;
   } finally {
     btn.disabled = false;
-    btnIcon.className = '';
     btnIcon.textContent = '✨';
-    btnLabel.className = '';
     btnLabel.textContent = 'Transform my notes';
   }
 });
 
 // ════════════════════════════════════════════════════════════
-// LIVE CONCEPT PILL CLINIC (CLICK-TO-EXPLAIN EXECUTIONS)
+// CONCEPT INTERACTION EXPLAINER MODAL
 // ════════════════════════════════════════════════════════════
-function bindConceptPills() {
-  document.querySelectorAll('.study-sheet .concept-pill').forEach(pill => {
-    pill.addEventListener('click', async () => {
-      const conceptName = pill.getAttribute('data-concept') || pill.innerText;
-      openExplainModal(conceptName);
-    });
+function attachConceptListeners() {
+  document.getElementById('output-area').addEventListener('click', async (e) => {
+    const pill = e.target.closest('.concept-pill');
+    if (!pill) return;
+
+    const concept = pill.textContent.trim();
+    const modal = document.getElementById('explain-modal');
+    
+    document.getElementById('explain-subject').textContent = `Subject Context: ${selectedSubject}`;
+    document.getElementById('explain-title').textContent = concept;
+    document.getElementById('explain-body').innerHTML = `<p class="loading-dots">Consulting deep knowledge reference bases for "${concept}"</p>`;
+    modal.classList.add('open');
+
+    try {
+      const response = await fetch(`${GEMINI_BASE}:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Provide an accessible, direct, and raw text paragraph explanation for the concept: "${concept}" within the context of high school/undergraduate level ${selectedSubject}. Use explicit examples if relevant.` }] }]
+        })
+      });
+
+      const data = await response.json();
+      const rawText = data.candidates[0].content.parts[0].text;
+      document.getElementById('explain-body').innerHTML = `<p>${escHtml(rawText)}</p>`;
+    } catch(err) {
+      document.getElementById('explain-body').innerHTML = `<p style="color:var(--red)">Failed to reach explainer base: ${err.message}</p>`;
+    }
   });
-}
-
-async function openExplainModal(conceptName) {
-  const modal = document.getElementById('explain-modal');
-  const mSubject = document.getElementById('explain-subject');
-  const mTitle = document.getElementById('explain-title');
-  const mBody = document.getElementById('explain-body');
-  
-  mSubject.textContent = `${selectedSubject.toUpperCase()} DEEP DIVE`;
-  mTitle.textContent = conceptName;
-  mBody.innerHTML = `<div class="spin" style="width:24px;height:24px;margin:20px auto"></div><p style="text-align:center;color:var(--text3)">Consulting StudyFlow ReTeacher engines...</p>`;
-  
-  modal.classList.add('open');
-
-  const deepDivePrompt = `Explain the concept "${conceptName}" within the academic context of ${selectedSubject}. 
-Provide a clear, intuitive 2-paragraph overview containing a simple everyday analogy and real-world execution cases. Format strictly as standard visual HTML <p> fragments only.`;
-
-  try {
-    const response = await fetch(`${GEMINI_BASE}:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: deepDivePrompt }] }],
-        generationConfig: { temperature: 0.4 }
-      })
-    });
-
-    if (!response.ok) throw new Error('Failed loading explanation snippet.');
-    const data = await response.json();
-    let explanationHtml = data.candidates?.[0]?.content?.parts?.[0]?.text || '<p>Explanation unavailable.</p>';
-    explanationHtml = explanationHtml.replace(/^```html\s*/i, '').replace(/
-```\s*$/i, '').trim();
-
-    mBody.innerHTML = explanationHtml;
-  } catch(e) {
-    mBody.innerHTML = `<p style="color:var(--red)">⚠️ Error generating deep dive lookup: ${e.message}</p>`;
-  }
 }
 
 function closeExplain() {
   document.getElementById('explain-modal').classList.remove('open');
 }
 
-// Global modal background closer escape mechanics
-document.getElementById('explain-modal').addEventListener('click', (e) => {
-  if(e.target === document.getElementById('explain-modal')) closeExplain();
-});
-
-// ════════════════════════════════════════════════════════════
-// TOOLBAR ACCELERATIONS
-// ════════════════════════════════════════════════════════════
+// Toolbar Clipboard integration
 document.getElementById('copy-btn').addEventListener('click', () => {
-  const textContent = document.getElementById('output-area').innerText;
-  navigator.clipboard.writeText(textContent).then(() => {
-    const btn = document.getElementById('copy-btn');
-    const oldText = btn.textContent;
-    btn.textContent = 'Copied! ✓';
-    btn.style.borderColor = 'var(--green)';
+  const strippedText = lastSheetText.replace(/<[^>]*>/g, '');
+  navigator.clipboard.writeText(strippedText).then(() => {
+    const originalText = document.getElementById('copy-btn').textContent;
+    document.getElementById('copy-btn').textContent = 'Copied! ✓';
     setTimeout(() => {
-      btn.textContent = oldText;
-      btn.style.borderColor = '';
-    }, 2000);
-  }).catch(err => {
-    alert('Failed copying to clipboard context.');
+      document.getElementById('copy-btn').textContent = originalText;
+    }, 200);
   });
 });
 </script>
