@@ -2,12 +2,12 @@
 // Loaded via <script> tag on every page after the Firebase CDN scripts.
 
 const SF_FIREBASE_CONFIG = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCERrtTSgSrVxRO0jf5ZOXLRLHyG7UQ0C4",
+  authDomain: "studyflow-32548.firebaseapp.com",
+  projectId: "studyflow-32548",
+  storageBucket: "studyflow-32548.firebasestorage.app",
+  messagingSenderId: "58419725016",
+  appId: "1:58419725016:web:71cdaa27ac0fed60374dad"
 };
 
 // ─── Init ────────────────────────────────────────────────────────────────────
