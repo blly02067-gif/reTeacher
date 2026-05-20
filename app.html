@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyFlow — Dashboard</title>
+<link rel="stylesheet" href="css/shared.css">
+<style>
+  .welcome { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .welcome-sub { color: var(--text2); font-size: 15px; margin-bottom: 28px; }
+  .quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .quick-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 16px;
+    text-align: center;
+    text-decoration: none;
+    color: var(--text);
+    transition: all 0.15s;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .quick-card:hover { border-color: var(--accent); background: rgba(124,106,247,0.06); transform: translateY(-2px); }
+  .quick-card .qc-icon { font-size: 28px; }
+  .quick-card .qc-label { font-size: 13px; font-weight: 600; }
+  .quick-card .qc-sub { font-size: 12px; color: var(--text2); }
+  .section-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .todo-preview { display: flex; flex-direction: column; gap: 8px; }
+  .todo-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .todo-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
+  .todo-row .todo-text { flex: 1; }
+  .todo-row .todo-sub { font-size: 12px; color: var(--text2); }
+  .streak-bar { display: flex; gap: 4px; flex-wrap: wrap; }
+  .streak-dot {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text3);
+  }
+  .streak-dot.done { background: var(--accent-bg); color: var(--accent2); font-weight: 700; }
+  .streak-dot.today { background: var(--accent); color: #fff; font-weight: 700; }
+  .streak-dot.empty { background: var(--bg3); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
+  .premium-banner {
+    background: linear-gradient(135deg, rgba(124,106,247,0.15), rgba(124,106,247,0.05));
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .premium-banner .pb-icon { font-size: 28px; flex-shrink: 0; }
+  .premium-banner h3 { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .premium-banner p { font-size: 13px; color: var(--text2); }
+  .premium-banner a { margin-left: auto; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-logo">StudyFlow</a>
+  <a href="app.html" class="nav-link active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </a>
+  <a href="timer.html" class="nav-link">⏱ Timer</a>
+  <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+  <a href="todos.html" class="nav-link">✅ Todos</a>
+  <a href="subjects.html" class="nav-link">📁 Subjects</a>
+  <a href="progress.html" class="nav-link">🔥 Progress</a>
+  <div class="nav-spacer"></div>
+  <a href="reteacher.html" class="nav-premium">✨ ReTeacher</a>
+</nav>
+
+<div class="page">
+  <p class="welcome" id="greeting">Good evening 👋</p>
+  <p class="welcome-sub">Ready to study? Here's where you left off.</p>
+
+  <div class="premium-banner">
+    <div class="pb-icon">✨</div>
+    <div>
+      <h3>Try ReTeacher — paste your messy notes, get a perfect study sheet</h3>
+      <p>AI-powered · Math, physics, chem, calculus · $5/month</p>
+    </div>
+    <a href="reteacher.html"><button class="btn btn-primary btn-sm">Try it →</button></a>
+  </div>
+
+  <div class="quick-grid">
+    <a href="timer.html" class="quick-card">
+      <div class="qc-icon">⏱</div>
+      <div class="qc-label">Pomodoro</div>
+      <div class="qc-sub">Start a session</div>
+    </a>
+    <a href="flashcards.html" class="quick-card">
+      <div class="qc-icon">🃏</div>
+      <div class="qc-label">Flashcards</div>
+      <div class="qc-sub" id="fc-count">0 cards</div>
+    </a>
+    <a href="todos.html" class="quick-card">
+      <div class="qc-icon">✅</div>
+      <div class="qc-label">Homework</div>
+      <div class="qc-sub" id="todo-count">0 tasks</div>
+    </a>
+    <a href="subjects.html" class="quick-card">
+      <div class="qc-icon">📁</div>
+      <div class="qc-label">Subjects</div>
+      <div class="qc-sub" id="subj-count">0 subjects</div>
+    </a>
+    <a href="progress.html" class="quick-card">
+      <div class="qc-icon">🔥</div>
+      <div class="qc-label">Streak</div>
+      <div class="qc-sub" id="streak-count">0 days</div>
+    </a>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <p class="section-title">Upcoming tasks</p>
+      <div class="todo-preview" id="todo-preview">
+        <div class="empty-state" style="padding:24px">
+          <p>No tasks yet — <a href="todos.html" style="color:var(--accent2)">add some</a></p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="section-title">This week's study days</p>
+      <div class="streak-bar" id="week-bar"></div>
+      <div style="margin-top:16px;display:flex;gap:16px">
+        <div class="stat-card" style="flex:1;padding:14px">
+          <div class="stat-num" id="dash-streak">0</div>
+          <div class="stat-label">day streak</div>
+        </div>
+        <div class="stat-card" style="flex:1;padding:14px">
+          <div class="stat-num" id="dash-sessions">0</div>
+          <div class="stat-label">sessions</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const hour = new Date().getHours();
+const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+document.getElementById('greeting').textContent = greet + ' 👋';
+
+const todos = JSON.parse(localStorage.getItem('sf_todos') || '[]');
+const flashcards = JSON.parse(localStorage.getItem('sf_flashcards') || '[]');
+const subjects = JSON.parse(localStorage.getItem('sf_subjects') || '[]');
+const progress = JSON.parse(localStorage.getItem('sf_progress') || '{"streak":0,"sessions":0,"days":[]}');
+
+document.getElementById('fc-count').textContent = flashcards.length + ' cards';
+document.getElementById('todo-count').textContent = todos.filter(t => !t.done).length + ' tasks';
+document.getElementById('subj-count').textContent = subjects.length + ' subjects';
+document.getElementById('streak-count').textContent = progress.streak + ' days';
+document.getElementById('dash-streak').textContent = progress.streak;
+document.getElementById('dash-sessions').textContent = progress.sessions || 0;
+
+const pending = todos.filter(t => !t.done).slice(0, 4);
+const prev = document.getElementById('todo-preview');
+if (pending.length > 0) {
+  prev.innerHTML = pending.map(t => `
+    <div class="todo-row">
+      <input type="checkbox" disabled>
+      <div>
+        <div class="todo-text">${t.text}</div>
+        <div class="todo-sub">${t.subject || 'General'} ${t.due ? '· Due ' + t.due : ''}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+const days = ['S','M','T','W','T','F','S'];
+const today = new Date().getDay();
+const bar = document.getElementById('week-bar');
+bar.innerHTML = days.map((d, i) => {
+  const cls = i === today ? 'today' : (progress.days || []).includes(i) ? 'done' : 'empty';
+  return `<div class="streak-dot ${cls}">${d}</div>`;
+}).join('');
+</script>
+</body>
+</html>
