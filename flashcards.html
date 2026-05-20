@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyFlow — Flashcards</title>
+<link rel="stylesheet" href="css/shared.css">
+<style>
+  .fc-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 700px) { .fc-layout { grid-template-columns: 1fr; } }
+  .fc-form { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; position: sticky; top: 80px; }
+  .fc-form h2 { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .deck-list { display: flex; flex-direction: column; gap: 16px; }
+  .deck-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .deck-name { font-size: 15px; font-weight: 700; }
+  .deck-count { font-size: 12px; color: var(--text2); }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .fc-card {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; cursor: pointer;
+    transition: all 0.15s; min-height: 90px;
+    display: flex; flex-direction: column; position: relative;
+  }
+  .fc-card:hover { border-color: var(--border2); }
+  .fc-card .fc-q { font-size: 13px; font-weight: 600; margin-bottom: 6px; flex: 1; }
+  .fc-card .fc-a { font-size: 12px; color: var(--text2); display: none; }
+  .fc-card.flipped .fc-q { display: none; }
+  .fc-card.flipped .fc-a { display: block; color: var(--accent2); font-weight: 600; }
+  .fc-card .fc-hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
+  .fc-delete { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 4px; opacity: 0; transition: opacity 0.15s; }
+  .fc-card:hover .fc-delete { opacity: 1; }
+  .fc-delete:hover { color: var(--red); background: var(--red-bg); }
+  .quiz-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+  .quiz-big {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 40px 24px;
+    text-align: center; cursor: pointer; transition: all 0.2s;
+    min-height: 200px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px;
+  }
+  .quiz-big:hover { border-color: var(--accent); }
+  .quiz-big .q-label { font-size: 12px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .quiz-big .q-text { font-size: 22px; font-weight: 700; }
+  .quiz-big .a-text { font-size: 18px; color: var(--accent2); font-weight: 600; display: none; }
+  .quiz-big.revealed .a-text { display: block; }
+  .quiz-big.revealed .q-hint { display: none; }
+  .q-hint { font-size: 13px; color: var(--text3); }
+  .quiz-nav { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+  .quiz-counter { font-size: 14px; color: var(--text2); text-align: center; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase.js"></script>
+
+<nav>
+  <a href="index.html" class="nav-logo">StudyFlow</a>
+  <a href="app.html" class="nav-link">Dashboard</a>
+  <a href="timer.html" class="nav-link">⏱ Timer</a>
+  <a href="flashcards.html" class="nav-link active">🃏 Flashcards</a>
+  <a href="todos.html" class="nav-link">✅ Todos</a>
+  <a href="subjects.html" class="nav-link">📁 Subjects</a>
+  <a href="progress.html" class="nav-link">🔥 Progress</a>
+  <div class="nav-spacer"></div>
+  <div id="sf-auth-slot"></div>
+  <a href="reteacher.html" class="nav-premium">✨ ReTeacher</a>
+</nav>
+
+<div class="page">
+  <h1 class="page-title">Flashcards</h1>
+  <p class="page-sub">Create cards and quiz yourself. Click any card to flip it.</p>
+
+  <div id="quiz-mode" style="display:none; margin-bottom: 28px;">
+    <div class="quiz-bar">
+      <span style="font-size:15px;font-weight:700">Quiz mode</span>
+      <button class="btn btn-ghost btn-sm" id="quit-quiz">← Back to cards</button>
+      <button class="btn btn-ghost btn-sm" id="shuffle-btn">Shuffle</button>
+    </div>
+    <div class="quiz-big" id="quiz-card">
+      <div class="q-label">Question</div>
+      <div class="q-text" id="quiz-q"></div>
+      <div class="q-hint">Click to reveal answer</div>
+      <div class="a-text" id="quiz-a"></div>
+    </div>
+    <p class="quiz-counter" id="quiz-counter"></p>
+    <div class="quiz-nav">
+      <button class="btn btn-ghost" id="prev-btn">← Prev</button>
+      <button class="btn btn-primary" id="next-btn">Next →</button>
+    </div>
+  </div>
+
+  <div id="browse-mode">
+    <div class="fc-layout">
+      <div class="fc-form">
+        <h2>Add flashcard</h2>
+        <div class="form-group">
+          <label>Deck / subject</label>
+          <input type="text" id="fc-deck" placeholder="e.g. Calculus, Biology...">
+        </div>
+        <div class="form-group">
+          <label>Question</label>
+          <textarea id="fc-q-input" rows="2" placeholder="What is the derivative of sin(x)?"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Answer</label>
+          <textarea id="fc-a-input" rows="2" placeholder="cos(x)"></textarea>
+        </div>
+        <button class="btn btn-primary" id="add-fc-btn" style="width:100%">+ Add card</button>
+      </div>
+      <div>
+        <div id="deck-list" class="deck-list">
+          <div class="empty-state">
+            <div style="font-size:32px">🃏</div>
+            <p>No flashcards yet.<br>Add your first card to get started.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let cards = [];
+let quizCards = [], quizIdx = 0;
+
+async function initCards() {
+  cards = await sfLoad('flashcards', []);
+  renderDecks();
+}
+
+async function saveCards() {
+  await sfSave('flashcards', cards);
+}
+
+function renderDecks() {
+  const el = document.getElementById('deck-list');
+  if (!cards.length) {
+    el.innerHTML = '<div class="empty-state"><div style="font-size:32px">🃏</div><p>No flashcards yet.<br>Add your first card to get started.</p></div>';
+    return;
+  }
+  const decks = {};
+  cards.forEach((c, i) => { const d = c.deck || 'General'; if (!decks[d]) decks[d] = []; decks[d].push({...c, idx: i}); });
+  el.innerHTML = Object.entries(decks).map(([deck, dCards]) => `
+    <div class="card">
+      <div class="deck-header">
+        <div>
+          <span class="deck-name">${deck}</span>
+          <span class="deck-count" style="margin-left:8px">${dCards.length} card${dCards.length !== 1 ? 's' : ''}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="startQuiz('${deck}')">Quiz this deck →</button>
+      </div>
+      <div class="card-grid">
+        ${dCards.map(c => `
+          <div class="fc-card" onclick="flipCard(this)">
+            <button class="fc-delete" onclick="event.stopPropagation(); deleteCard(${c.idx})">✕</button>
+            <div class="fc-q">${c.q}</div>
+            <div class="fc-a">${c.a}</div>
+            <div class="fc-hint">Click to flip</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function flipCard(el) { el.classList.toggle('flipped'); }
+
+async function deleteCard(idx) {
+  cards.splice(idx, 1);
+  await saveCards();
+  renderDecks();
+}
+
+document.getElementById('add-fc-btn').addEventListener('click', async () => {
+  const q = document.getElementById('fc-q-input').value.trim();
+  const a = document.getElementById('fc-a-input').value.trim();
+  const deck = document.getElementById('fc-deck').value.trim() || 'General';
+  if (!q || !a) return;
+  cards.push({ q, a, deck });
+  await saveCards();
+  renderDecks();
+  document.getElementById('fc-q-input').value = '';
+  document.getElementById('fc-a-input').value = '';
+});
+
+function startQuiz(deck) {
+  const filtered = deck ? cards.filter(c => (c.deck || 'General') === deck) : cards;
+  quizCards = [...filtered]; quizIdx = 0;
+  document.getElementById('quiz-mode').style.display = 'block';
+  document.getElementById('browse-mode').style.display = 'none';
+  showQuizCard();
+}
+
+function showQuizCard() {
+  if (!quizCards.length) return;
+  const c = quizCards[quizIdx];
+  document.getElementById('quiz-q').textContent = c.q;
+  document.getElementById('quiz-a').textContent = c.a;
+  document.getElementById('quiz-card').classList.remove('revealed');
+  document.getElementById('quiz-counter').textContent = (quizIdx + 1) + ' / ' + quizCards.length;
+}
+
+document.getElementById('quiz-card').addEventListener('click', () => document.getElementById('quiz-card').classList.toggle('revealed'));
+document.getElementById('next-btn').addEventListener('click', () => { quizIdx = (quizIdx + 1) % quizCards.length; showQuizCard(); });
+document.getElementById('prev-btn').addEventListener('click', () => { quizIdx = (quizIdx - 1 + quizCards.length) % quizCards.length; showQuizCard(); });
+document.getElementById('quit-quiz').addEventListener('click', () => { document.getElementById('quiz-mode').style.display = 'none'; document.getElementById('browse-mode').style.display = 'block'; });
+document.getElementById('shuffle-btn').addEventListener('click', () => { quizCards.sort(() => Math.random() - 0.5); quizIdx = 0; showQuizCard(); });
+
+sfOnAuthReady(() => initCards());
+initCards();
+</script>
+</body>
+</html>

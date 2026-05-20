@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyFlow — ReTeacher AI</title>
+<link rel="stylesheet" href="css/shared.css">
+<style>
+  .rt-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 700px) { .rt-layout { grid-template-columns: 1fr; } }
+  .rt-panel { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .rt-panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .rt-panel-body { padding: 16px 20px; }
+  .notes-input { width: 100%; min-height: 280px; resize: vertical; font-size: 14px; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--text); padding: 14px; font-family: inherit; line-height: 1.6; outline: none; }
+  .notes-input:focus { border-color: var(--accent); }
+  .subject-sel { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .subj-chip { padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border2); background: transparent; color: var(--text2); transition: all 0.15s; }
+  .subj-chip.active { background: var(--accent-bg); color: var(--accent2); border-color: var(--accent); }
+  .generate-btn { width: 100%; padding: 13px; font-size: 15px; font-weight: 700; }
+  .output-area { min-height: 320px; }
+  .output-placeholder { text-align: center; padding: 48px 20px; color: var(--text3); }
+  .output-placeholder p { margin-top: 8px; font-size: 14px; }
+  .study-sheet { line-height: 1.7; }
+  .study-sheet h1 { font-size: 20px; font-weight: 800; margin: 0 0 16px; color: var(--accent2); }
+  .study-sheet h2 { font-size: 16px; font-weight: 700; margin: 20px 0 8px; color: var(--text); border-left: 3px solid var(--accent); padding-left: 10px; }
+  .study-sheet h3 { font-size: 14px; font-weight: 700; margin: 14px 0 6px; color: var(--text2); }
+  .study-sheet p { font-size: 14px; margin: 0 0 10px; }
+  .study-sheet ul, .study-sheet ol { padding-left: 20px; margin: 0 0 10px; }
+  .study-sheet li { font-size: 14px; margin-bottom: 4px; }
+  .study-sheet strong { color: var(--accent2); font-weight: 700; }
+  .study-sheet code { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 1px 6px; font-size: 13px; font-family: monospace; color: var(--green); }
+  .concept-pill {
+    display: inline; cursor: pointer;
+    background: var(--accent-bg); color: var(--accent2);
+    border-radius: 4px; padding: 1px 6px;
+    font-weight: 600; font-size: 13px;
+    border-bottom: 1.5px solid var(--accent);
+    transition: background 0.15s;
+  }
+  .concept-pill:hover { background: rgba(124,106,247,0.25); }
+
+  /* Explain modal */
+  .explain-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200; padding: 20px;
+  }
+  .explain-modal.open { display: flex; }
+  .explain-box {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 28px;
+    max-width: 560px; width: 100%; max-height: 80vh;
+    overflow-y: auto; position: relative;
+  }
+  .explain-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 14px; color: var(--accent2); }
+  .explain-box p { font-size: 14px; line-height: 1.7; margin-bottom: 10px; }
+  .explain-close { position: absolute; top: 14px; right: 14px; background: var(--bg3); border: none; color: var(--text2); cursor: pointer; font-size: 18px; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+
+  /* Paywall */
+  .paywall { text-align: center; padding: 40px 24px; }
+  .paywall-icon { font-size: 40px; margin-bottom: 12px; }
+  .paywall h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+  .paywall p { color: var(--text2); margin-bottom: 24px; font-size: 15px; }
+  .paywall-features { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; text-align: left; max-width: 300px; margin-left: auto; margin-right: auto; }
+  .paywall-features li { font-size: 14px; list-style: none; display: flex; align-items: center; gap: 8px; }
+  .paywall-features li::before { content: '✓'; color: var(--green); font-weight: 700; }
+  .divider-or { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--text3); font-size: 13px; }
+  .divider-or::before, .divider-or::after { content:''; flex:1; border-top: 1px solid var(--border); }
+  .dev-box { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); padding: 16px; }
+  .dev-box p { font-size: 13px; color: var(--text2); margin-bottom: 8px; }
+  .dev-box a { color: var(--accent2); }
+  .char-count { font-size: 12px; color: var(--text3); text-align: right; margin-top: 4px; }
+  .streaming-cursor::after { content: '▊'; animation: blink 0.7s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+  .loading-dots::after { content: '.'; animation: dots 1.2s infinite; }
+  @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
+
+  /* Signed-in API key section */
+  .api-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; margin-bottom: 14px; }
+  .api-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .api-key-toggle { font-size: 12px; color: var(--accent2); cursor: pointer; margin-left: auto; }
+</style>
+</head>
+<body>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase.js"></script>
+
+<nav>
+  <a href="index.html" class="nav-logo">StudyFlow</a>
+  <a href="app.html" class="nav-link">Dashboard</a>
+  <a href="timer.html" class="nav-link">⏱ Timer</a>
+  <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+  <a href="todos.html" class="nav-link">✅ Todos</a>
+  <a href="subjects.html" class="nav-link">📁 Subjects</a>
+  <a href="progress.html" class="nav-link">🔥 Progress</a>
+  <div class="nav-spacer"></div>
+  <div id="sf-auth-slot"></div>
+  <a href="reteacher.html" class="nav-link active nav-premium">✨ ReTeacher</a>
+</nav>
+
+<div class="page">
+  <h1 class="page-title">✨ ReTeacher</h1>
+  <p class="page-sub">Paste your messy class notes. Get a clean, organized study sheet. Click any <span class="concept-pill" style="cursor:default">concept</span> for a deeper AI explanation.</p>
+
+  <!-- ── PAYWALL (shown when no access) ── -->
+  <div id="paywall-section" style="display:none">
+    <div class="card paywall">
+      <div class="paywall-icon">✨</div>
+      <h2>Unlock ReTeacher AI</h2>
+      <p>Transform your messy class notes into clean study sheets — powered by Google Gemini.</p>
+      <ul class="paywall-features">
+        <li>AI-organized study sheets</li>
+        <li>Click any concept for a deeper explanation</li>
+        <li>Works for math, physics, chem, calculus</li>
+        <li>Unlimited generations</li>
+        <li>Syncs with your account</li>
+      </ul>
+
+      <!-- Stripe placeholder -->
+      <button class="btn btn-primary" style="font-size:16px;padding:13px 36px" id="stripe-btn">
+        Upgrade — $5/month
+      </button>
+      <p style="font-size:12px;color:var(--text3);margin-top:8px">Secure checkout via Stripe · Cancel anytime</p>
+
+      <div class="divider-or">or test for free</div>
+
+      <div class="dev-box">
+        <p>Enter your own <a href="https://aistudio.google.com/app/apikey" target="_blank">Gemini API key</a> to try without paying (free tier available)</p>
+        <input type="password" id="gemini-key-input" placeholder="AIza...">
+        <button class="btn btn-ghost btn-sm" id="save-key-btn" style="width:100%;margin-top:8px">Use my Gemini API key</button>
+        <p id="key-error" style="color:var(--red);font-size:12px;margin-top:6px;display:none"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN APP (shown when access granted) ── -->
+  <div id="app-section" style="display:none">
+    <div id="api-status-bar" class="api-status" style="display:none">
+      <div class="dot"></div>
+      <span id="api-status-label">Using your Gemini API key</span>
+      <span class="api-key-toggle" id="change-key-btn">Change key</span>
+    </div>
+
+    <div id="change-key-panel" style="display:none;margin-bottom:14px">
+      <div class="dev-box">
+        <p>Enter a different Gemini API key</p>
+        <input type="password" id="gemini-key-change" placeholder="AIza...">
+        <button class="btn btn-ghost btn-sm" id="update-key-btn" style="width:100%;margin-top:8px">Update key</button>
+      </div>
+    </div>
+
+    <div class="rt-layout">
+      <!-- Left: Notes input -->
+      <div class="rt-panel">
+        <div class="rt-panel-header">📋 Your notes</div>
+        <div class="rt-panel-body">
+          <p style="font-size:13px;color:var(--text2);margin-bottom:10px">What subject are these notes for?</p>
+          <div class="subject-sel" id="subject-sel">
+            <button class="subj-chip active" data-subj="General">General</button>
+            <button class="subj-chip" data-subj="Math">Math</button>
+            <button class="subj-chip" data-subj="Physics">Physics</button>
+            <button class="subj-chip" data-subj="Chemistry">Chemistry</button>
+            <button class="subj-chip" data-subj="Calculus">Calculus</button>
+            <button class="subj-chip" data-subj="Biology">Biology</button>
+          </div>
+          <textarea class="notes-input" id="notes-input" placeholder="Paste your class notes here...
+
+e.g.
+so derivative is rate of change right
+chain rule - if u got f(g(x)) then multiply the derivatives together
+power rule xn becomes nxn-1
+trig: sin -> cos, cos -> -sin
+dont forget product rule: d/dx[fg] = f'g + fg'
+exam is friday!!!"></textarea>
+          <div class="char-count" id="char-count">0 / 5000 chars</div>
+          <button class="btn btn-primary generate-btn" id="generate-btn" style="margin-top:10px">✨ Transform my notes</button>
+        </div>
+      </div>
+
+      <!-- Right: Study sheet output -->
+      <div class="rt-panel">
+        <div class="rt-panel-header">
+          📄 Study sheet
+          <span id="sheet-badge" style="display:none;margin-left:auto" class="badge badge-green">Ready ✓</span>
+        </div>
+        <div class="rt-panel-body output-area" id="output-area">
+          <div class="output-placeholder">
+            <div style="font-size:36px">✨</div>
+            <p>Your study sheet will appear here.<br>Paste your notes and hit Transform.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Explain modal -->
+<div class="explain-modal" id="explain-modal">
+  <div class="explain-box">
+    <button class="explain-close" onclick="closeExplain()">✕</button>
+    <h3 id="explain-title"></h3>
+    <div id="explain-body"></div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let geminiKey = localStorage.getItem('sf_gemini_key') || '';
+let isPremium = localStorage.getItem('sf_premium') === 'true';
+let selectedSubject = 'General';
+
+const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL;
+
+// ─── Access check ─────────────────────────────────────────────────────────────
+function checkAccess() {
+  const hasAccess = isPremium || geminiKey;
+  document.getElementById('paywall-section').style.display = hasAccess ? 'none' : 'block';
+  document.getElementById('app-section').style.display = hasAccess ? 'block' : 'none';
+  if (geminiKey && !isPremium) {
+    document.getElementById('api-status-bar').style.display = 'flex';
+    document.getElementById('api-status-label').textContent = 'Using your Gemini API key · Free tier';
+  } else if (isPremium) {
+    document.getElementById('api-status-bar').style.display = 'none';
+  }
+}
+
+// ─── Save & validate Gemini key ───────────────────────────────────────────────
+async function validateAndSaveKey(key, inputEl, errEl, successCb) {
+  errEl.style.display = 'none';
+  if (!key || !key.startsWith('AIza')) {
+    errEl.textContent = 'That doesn\'t look like a Gemini API key (should start with AIza).';
+    errEl.style.display = 'block';
+    return;
+  }
+  // Quick validation ping
+  try {
+    const r = await fetch(`${GEMINI_BASE}:generateContent?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }], generationConfig: { maxOutputTokens: 5 } })
+    });
+    if (!r.ok && r.status === 400) { /* might be quota — still valid key format */ }
+    if (r.status === 403 || r.status === 401) {
+      const d = await r.json();
+      errEl.textContent = 'API key rejected: ' + (d.error?.message || 'Invalid key.');
+      errEl.style.display = 'block';
+      return;
+    }
+  } catch(e) { /* network error, allow through */ }
+
+  geminiKey = key;
+  localStorage.setItem('sf_gemini_key', key);
+  if (successCb) successCb();
+  checkAccess();
+}
+
+document.getElementById('save-key-btn').addEventListener('click', () => {
+  const key = document.getElementById('gemini-key-input').value.trim();
+  const err = document.getElementById('key-error');
+  validateAndSaveKey(key, document.getElementById('gemini-key-input'), err);
+});
+
+document.getElementById('change-key-btn').addEventListener('click', () => {
+  const panel = document.getElementById('change-key-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('update-key-btn').addEventListener('click', () => {
+  const key = document.getElementById('gemini-key-change').value.trim();
+  const fakeErr = document.createElement('p');
+  validateAndSaveKey(key, null, fakeErr, () => {
+    document.getElementById('change-key-panel').style.display = 'none';
+  });
+});
+
+// ─── Stripe placeholder ────────────────────────────────────────────────────────
+document.getElementById('stripe-btn').addEventListener('click', () => {
+  // TODO: Replace with real Stripe Checkout
+  // e.g. stripe.redirectToCheckout({ lineItems: [...], mode: 'subscription', ... })
+  alert('Stripe checkout coming soon!\n\nFor now, use your own Gemini API key below to test the feature for free.\n\nGet a free key at: https://aistudio.google.com/app/apikey');
+});
+
+// ─── Subject chips ────────────────────────────────────────────────────────────
+document.getElementById('subject-sel').addEventListener('click', e => {
+  const chip = e.target.closest('.subj-chip');
+  if (!chip) return;
+  selectedSubject = chip.dataset.subj;
+  document.querySelectorAll('.subj-chip').forEach(c => c.classList.toggle('active', c === chip));
+});
+
+document.getElementById('notes-input').addEventListener('input', function() {
+  const len = this.value.length;
+  document.getElementById('char-count').textContent = len + ' / 5000 chars';
+  if (len > 5000) this.value = this.value.slice(0, 5000);
+});
+
+// ─── Markdown → HTML renderer ─────────────────────────────────────────────────
+function renderSheet(md) {
+  return md
+    .replace(/\[CONCEPT:\s*([^\]]+)\]/g, '<span class="concept-pill" onclick="explainConcept(\'$1\')">$1</span>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>)(?=\s*(?:<li>|$))/g, m => '<ul>' + m + '</ul>')
+    .replace(/\n{2,}/g, '</p><p>')
+    .replace(/^(?!<)/gm, '')
+    .replace(/<p><\/p>/g, '');
+}
+
+// ─── Main generation (Gemini API with streaming) ───────────────────────────────
+document.getElementById('generate-btn').addEventListener('click', async () => {
+  const notes = document.getElementById('notes-input').value.trim();
+  if (!notes) { alert('Please paste your notes first!'); return; }
+  if (notes.length < 20) { alert('Your notes seem too short — add more content for best results.'); return; }
+
+  const key = geminiKey;
+  if (!key) { alert('No API key found. Please add your Gemini key.'); checkAccess(); return; }
+
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Transforming…';
+  document.getElementById('sheet-badge').style.display = 'none';
+
+  const out = document.getElementById('output-area');
+  out.innerHTML = '<div style="padding:20px;color:var(--text2);font-size:14px">Analyzing your notes<span class="loading-dots"></span></div>';
+
+  const systemInstruction = `You are ReTeacher, an AI study assistant. Transform messy class notes into a beautifully structured study sheet.
+
+Format rules:
+- Use # for the main title
+- Use ## for major sections/concepts
+- Use ### for subsections
+- Use **bold** for key terms and important formulas
+- Use bullet lists for related points
+- Wrap key concepts the student might want explained deeper in [CONCEPT: name] format
+- For math/physics/chem: clearly show formulas with explanation
+- Keep language clear, concise, student-friendly
+- End with a ## Key Takeaways section with 3-5 bullet points
+
+Subject context: ${selectedSubject}`;
+
+  const userPrompt = `Here are my class notes. Transform them into a clear, organized study sheet:\n\n${notes}`;
+
+  try {
+    // Gemini streaming endpoint
+    const url = `${GEMINI_BASE}:streamGenerateContent?alt=sse&key=${key}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: { maxOutputTokens: 2048, temperature: 0.4 }
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error?.message || 'Gemini API error ' + resp.status);
+    }
+
+    out.innerHTML = '<div class="study-sheet" id="sheet-content"><span class="streaming-cursor"></span></div>';
+    let rawText = '';
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const chunk = parsed.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (chunk) {
+            rawText += chunk;
+            const el = document.getElementById('sheet-content');
+            if (el) el.innerHTML = renderSheet(rawText) + '<span class="streaming-cursor"></span>';
+          }
+        } catch(e) {}
+      }
+    }
+
+    const el = document.getElementById('sheet-content');
+    if (el) el.innerHTML = renderSheet(rawText);
+    document.getElementById('sheet-badge').style.display = 'inline';
+
+  } catch(err) {
+    out.innerHTML = `<div style="padding:20px;color:var(--red);font-size:14px">
+      ⚠️ Error: ${err.message}<br><br>
+      <span style="color:var(--text2)">Check your API key and try again. Make sure the Gemini API is enabled in Google AI Studio.</span>
+    </div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '✨ Transform my notes';
+});
+
+// ─── Concept explanation (Gemini) ─────────────────────────────────────────────
+async function explainConcept(concept) {
+  const key = geminiKey;
+  if (!key) return;
+
+  const modal = document.getElementById('explain-modal');
+  const title = document.getElementById('explain-title');
+  const body = document.getElementById('explain-body');
+  title.textContent = concept;
+  body.innerHTML = '<p style="color:var(--text2)">Explaining<span class="loading-dots"></span></p>';
+  modal.classList.add('open');
+
+  try {
+    const url = `${GEMINI_BASE}:generateContent?key=${key}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          role: 'user',
+          parts: [{ text: `Explain "${concept}" to a student in 3-4 short paragraphs. Start with a simple everyday analogy, then give the formal definition, then show a practical example. Be clear and approachable. Subject context: ${selectedSubject}` }]
+        }],
+        generationConfig: { maxOutputTokens: 600, temperature: 0.5 }
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error?.message || 'API error');
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not get explanation.';
+    body.innerHTML = text.split('\n\n').filter(Boolean).map(p => `<p>${p}</p>`).join('');
+  } catch(e) {
+    body.innerHTML = `<p style="color:var(--red)">Failed to get explanation: ${e.message}</p>`;
+  }
+}
+
+function closeExplain() { document.getElementById('explain-modal').classList.remove('open'); }
+document.getElementById('explain-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('explain-modal')) closeExplain();
+});
+
+// ─── Auth integration ─────────────────────────────────────────────────────────
+sfOnAuthReady(user => {
+  if (user) {
+    // Check if user has premium in Firestore
+    sfDb.collection('users').doc(user.uid).get().then(doc => {
+      if (doc.exists && doc.data().premium) {
+        isPremium = true;
+        localStorage.setItem('sf_premium', 'true');
+        checkAccess();
+      }
+    }).catch(() => {});
+  }
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+checkAccess();
+</script>
+</body>
+</html>

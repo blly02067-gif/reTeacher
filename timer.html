@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyFlow — Timer</title>
+<link rel="stylesheet" href="css/shared.css">
+<style>
+  .timer-wrap { display: flex; flex-direction: column; align-items: center; padding-top: 20px; }
+  .mode-tabs { display: flex; gap: 6px; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 40px; }
+  .mode-tab { padding: 8px 20px; border-radius: 9px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text2); transition: all 0.15s; }
+  .mode-tab.active { background: var(--accent); color: #fff; }
+  .clock-ring { position: relative; width: 260px; height: 260px; margin-bottom: 32px; }
+  .clock-ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
+  .clock-bg { fill: none; stroke: var(--bg3); stroke-width: 8; }
+  .clock-progress { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.9s linear; }
+  .clock-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .clock-time { font-size: 52px; font-weight: 800; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+  .clock-mode { font-size: 13px; color: var(--text2); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+  .timer-controls { display: flex; gap: 12px; margin-bottom: 32px; }
+  .btn-timer { width: 56px; height: 56px; border-radius: 50%; border: none; cursor: pointer; font-size: 22px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .btn-play { background: var(--accent); color: #fff; width: 68px; height: 68px; font-size: 26px; }
+  .btn-play:hover { opacity: 0.88; transform: scale(1.05); }
+  .btn-reset { background: var(--bg3); color: var(--text2); }
+  .btn-reset:hover { background: var(--bg2); color: var(--text); }
+  .session-log { width: 100%; max-width: 480px; }
+  .log-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--text2); }
+  .log-list { display: flex; flex-direction: column; gap: 6px; }
+  .log-item { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 10px 14px; background: var(--bg2); border-radius: 8px; border: 1px solid var(--border); }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .log-dot.break { background: var(--amber); }
+  .log-time { margin-left: auto; font-size: 12px; color: var(--text2); }
+  .settings-row { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; justify-content: center; }
+  .setting-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; text-align: center; min-width: 100px; }
+  .setting-box label { display: block; font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .setting-box input { background: transparent; border: none; color: var(--text); font-size: 22px; font-weight: 700; width: 60px; text-align: center; outline: none; }
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase.js"></script>
+</head>
+<body>
+<nav>
+  <a href="index.html" class="nav-logo">StudyFlow</a>
+  <a href="app.html" class="nav-link">Dashboard</a>
+  <a href="timer.html" class="nav-link active">⏱ Timer</a>
+  <a href="flashcards.html" class="nav-link">🃏 Flashcards</a>
+  <a href="todos.html" class="nav-link">✅ Todos</a>
+  <a href="subjects.html" class="nav-link">📁 Subjects</a>
+  <a href="progress.html" class="nav-link">🔥 Progress</a>
+  <div class="nav-spacer"></div>
+  <div id="sf-auth-slot"></div>
+  <a href="reteacher.html" class="nav-premium">✨ ReTeacher</a>
+</nav>
+
+<div class="page">
+  <h1 class="page-title">Pomodoro timer</h1>
+  <p class="page-sub">Work in focused bursts, rest between sessions.</p>
+
+  <div class="timer-wrap">
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="work">Focus</button>
+      <button class="mode-tab" data-mode="short">Short break</button>
+      <button class="mode-tab" data-mode="long">Long break</button>
+    </div>
+
+    <div class="settings-row">
+      <div class="setting-box">
+        <label>Focus (min)</label>
+        <input type="number" id="work-min" value="25" min="1" max="90">
+      </div>
+      <div class="setting-box">
+        <label>Short break</label>
+        <input type="number" id="short-min" value="5" min="1" max="30">
+      </div>
+      <div class="setting-box">
+        <label>Long break</label>
+        <input type="number" id="long-min" value="15" min="1" max="60">
+      </div>
+    </div>
+
+    <div class="clock-ring">
+      <svg width="260" height="260" viewBox="0 0 260 260">
+        <circle class="clock-bg" cx="130" cy="130" r="116"/>
+        <circle class="clock-progress" id="ring" cx="130" cy="130" r="116" stroke-dasharray="729" stroke-dashoffset="0"/>
+      </svg>
+      <div class="clock-center">
+        <div class="clock-time" id="clock-display">25:00</div>
+        <div class="clock-mode" id="clock-mode-label">Focus time</div>
+      </div>
+    </div>
+
+    <div class="timer-controls">
+      <button class="btn-timer btn-reset" id="btn-reset" title="Reset">↺</button>
+      <button class="btn-timer btn-play" id="btn-play">▶</button>
+      <button class="btn-timer btn-reset" id="btn-skip" title="Skip">⏭</button>
+    </div>
+
+    <div class="session-log">
+      <p class="log-title">Session log</p>
+      <div class="log-list" id="log-list">
+        <div style="font-size:14px;color:var(--text3);text-align:center;padding:16px">No sessions yet today</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MODES = { work: 'work-min', short: 'short-min', long: 'long-min' };
+const LABELS = { work: 'Focus time', short: 'Short break', long: 'Long break' };
+const CIRC = 2 * Math.PI * 116;
+
+let mode = 'work';
+let totalSec = 25 * 60;
+let remaining = totalSec;
+let running = false;
+let interval = null;
+let log = [];
+
+const display = document.getElementById('clock-display');
+const modeLabel = document.getElementById('clock-mode-label');
+const ring = document.getElementById('ring');
+const btnPlay = document.getElementById('btn-play');
+
+function getMinutes(m) { return parseInt(document.getElementById(m).value) || 1; }
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  totalSec = getMinutes(MODES[m]) * 60;
+  remaining = totalSec;
+  running = false; clearInterval(interval);
+  btnPlay.textContent = '▶';
+  modeLabel.textContent = LABELS[m];
+  render();
+}
+
+function render() {
+  const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+  const s = (remaining % 60).toString().padStart(2, '0');
+  display.textContent = m + ':' + s;
+  const pct = remaining / totalSec;
+  ring.style.strokeDashoffset = CIRC * (1 - pct);
+  ring.style.stroke = mode === 'work' ? 'var(--accent)' : mode === 'short' ? 'var(--green)' : 'var(--amber)';
+}
+
+function tick() {
+  if (remaining <= 0) {
+    clearInterval(interval); running = false;
+    btnPlay.textContent = '▶';
+    addLog(mode);
+    if (mode === 'work') {
+      const p = JSON.parse(localStorage.getItem('sf_progress') || '{"streak":0,"sessions":0,"days":[]}');
+      p.sessions = (p.sessions || 0) + 1;
+      const day = new Date().getDay();
+      if (!p.days) p.days = [];
+      if (!p.days.includes(day)) { p.days.push(day); p.streak = (p.streak || 0) + 1; }
+      localStorage.setItem('sf_progress', JSON.stringify(p));
+    }
+    return;
+  }
+  remaining--;
+  render();
+}
+
+function addLog(m) {
+  const now = new Date();
+  const t = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  log.unshift({ mode: m, time: t });
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('log-list');
+  if (!log.length) { el.innerHTML = '<div style="font-size:14px;color:var(--text3);text-align:center;padding:16px">No sessions yet today</div>'; return; }
+  el.innerHTML = log.slice(0, 6).map(l => `
+    <div class="log-item">
+      <div class="log-dot ${l.mode !== 'work' ? 'break' : ''}"></div>
+      <span>${l.mode === 'work' ? 'Focus session' : l.mode === 'short' ? 'Short break' : 'Long break'}</span>
+      <span class="log-time">${l.time}</span>
+    </div>
+  `).join('');
+}
+
+btnPlay.addEventListener('click', () => {
+  running = !running;
+  btnPlay.textContent = running ? '⏸' : '▶';
+  if (running) interval = setInterval(tick, 1000);
+  else clearInterval(interval);
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  clearInterval(interval); running = false;
+  btnPlay.textContent = '▶';
+  totalSec = getMinutes(MODES[mode]) * 60;
+  remaining = totalSec; render();
+});
+
+document.getElementById('btn-skip').addEventListener('click', () => {
+  clearInterval(interval); running = false;
+  btnPlay.textContent = '▶';
+  const next = mode === 'work' ? 'short' : 'work';
+  setMode(next);
+});
+
+document.querySelectorAll('.mode-tab').forEach(t => t.addEventListener('click', () => setMode(t.dataset.mode)));
+['work-min','short-min','long-min'].forEach(id => document.getElementById(id).addEventListener('change', () => setMode(mode)));
+
+render();
+</script>
+<script>sfOnAuthReady(function(){});</script>
+</body>
+</html>
